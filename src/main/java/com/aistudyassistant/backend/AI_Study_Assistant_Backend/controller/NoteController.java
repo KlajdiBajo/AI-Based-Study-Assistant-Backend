@@ -1,10 +1,11 @@
 package com.aistudyassistant.backend.AI_Study_Assistant_Backend.controller;
 
-import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.Note;
+import com.aistudyassistant.backend.AI_Study_Assistant_Backend.dtos.NoteDto;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.User;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.repository.UserRepository;
-import com.aistudyassistant.backend.AI_Study_Assistant_Backend.service.impl.NoteServiceImpl;
+import com.aistudyassistant.backend.AI_Study_Assistant_Backend.service.NoteService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -19,42 +20,41 @@ import java.util.List;
 @RequiredArgsConstructor
 public class NoteController {
 
-    private final NoteServiceImpl noteService;
+    private final NoteService noteService;
     private final UserRepository userRepository;
 
     @PostMapping(value = "/upload", consumes = "multipart/form-data")
-    public ResponseEntity<Note> uploadNote(
+    public ResponseEntity<NoteDto> uploadNote(
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal UserDetails userDetails
     ) throws IOException {
-        // Use email from userDetails
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        Note note = noteService.saveNote(file, user);
-        return ResponseEntity.ok(note);
+
+        NoteDto dto = NoteDto.builder()
+                .userId(user.getId())
+                .build();
+
+        NoteDto savedNote = noteService.saveNote(file, dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedNote);
     }
 
     @GetMapping
-    public ResponseEntity<List<Note>> getUserNotes(
+    public ResponseEntity<List<NoteDto>> getUserNotes(
             @AuthenticationPrincipal UserDetails userDetails
     ) {
-        User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        List<Note> notes = noteService.getNotesByUser(user);
+        List<NoteDto> notes = noteService.getNotesByUser(userDetails.getUsername());
         return ResponseEntity.ok(notes);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Note> getNoteById(
+    public ResponseEntity<NoteDto> getNoteById(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
-        User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        return noteService.getNoteById(id)
-                .filter(note -> note.getUser().getId().equals(user.getId()))
+        return noteService.getNoteById(id, userDetails.getUsername())
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.status(403).build());
+                .orElse(ResponseEntity.status(HttpStatus.FORBIDDEN).build());
     }
 
     @DeleteMapping("/{id}")
@@ -62,15 +62,8 @@ public class NoteController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
-        User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        return noteService.getNoteById(id)
-                .filter(note -> note.getUser().getId().equals(user.getId()))
-                .map(note -> {
-                    noteService.deleteNoteById(id);
-                    // Optionally: delete file from disk here
-                    return ResponseEntity.ok().build();
-                })
-                .orElse(ResponseEntity.status(403).build());
+        noteService.deleteNoteById(id, userDetails.getUsername());
+        return ResponseEntity.noContent().build();
     }
 }
+

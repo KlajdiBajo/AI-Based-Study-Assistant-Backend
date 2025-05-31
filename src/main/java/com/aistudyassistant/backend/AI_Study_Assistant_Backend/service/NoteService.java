@@ -1,7 +1,7 @@
 package com.aistudyassistant.backend.AI_Study_Assistant_Backend.service;
 
+import com.aistudyassistant.backend.AI_Study_Assistant_Backend.dtos.NoteDto;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.Note;
-import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.User;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -10,11 +10,11 @@ import java.util.List;
 
 public interface NoteService {
 
-    Note saveNote(MultipartFile file, User user) throws IOException;
+    NoteDto saveNote(MultipartFile file, NoteDto dto) throws IOException;
 
-    List<Note> getNotesByUser(User user);
+    List<NoteDto> getNotesByUser(String email);
 
-    Optional<Note> getNoteById(long id);
+    Optional<NoteDto> getNoteById(Long id, String email);
 
-    void deleteNoteById(long id);
+    void deleteNoteById(Long id, String email);
 }
