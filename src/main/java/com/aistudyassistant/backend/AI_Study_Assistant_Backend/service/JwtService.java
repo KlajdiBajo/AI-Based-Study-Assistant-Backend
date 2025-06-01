@@ -6,5 +6,8 @@ import org.springframework.http.ResponseEntity;
 
 public interface JwtService {
     RegisterVerifyResponse generateJwtToken(User user);
+
     ResponseEntity<?> generateAccessTokenFromRefreshToken(String refreshToken);
+
+    String extractUsername(String token);
 }

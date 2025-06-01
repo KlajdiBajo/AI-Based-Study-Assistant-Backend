@@ -94,4 +94,9 @@ public class JwtServiceImpl implements JwtService {
         }
 
     }
+
+    @Override
+    public String extractUsername(String token) {
+        return jwtHelper.extractUsername(token);
+    }
 }

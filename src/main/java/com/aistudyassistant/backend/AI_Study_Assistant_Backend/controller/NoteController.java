@@ -65,5 +65,20 @@ public class NoteController {
         noteService.deleteNoteById(id, userDetails.getUsername());
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/notes/{id}/process-ai")
+    public ResponseEntity<?> processNoteWithAI(
+            @PathVariable Long id,
+            @RequestHeader("Authorization") String authHeader
+    ) {
+        try {
+            noteService.processNoteWithAiModel(id, authHeader);
+            return ResponseEntity.ok("AI content processed and saved successfully");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error during AI processing: " + e.getMessage());
+        }
+    }
 }
 

@@ -1,7 +1,6 @@
 package com.aistudyassistant.backend.AI_Study_Assistant_Backend.service;
 
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.dtos.NoteDto;
-import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.Note;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -17,4 +16,6 @@ public interface NoteService {
     Optional<NoteDto> getNoteById(Long id, String email);
 
     void deleteNoteById(Long id, String email);
+
+    void processNoteWithAiModel(Long noteId, String jwtToken);
 }
