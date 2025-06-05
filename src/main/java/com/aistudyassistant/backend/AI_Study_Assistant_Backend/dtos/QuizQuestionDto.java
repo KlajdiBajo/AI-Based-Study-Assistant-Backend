@@ -10,9 +10,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 public class QuizQuestionDto {
-    private Long quizId;
+    private Long quizQuestionId;
 
-    private String question;
+    private String questionText;
 
     private String correctAnswer;
 
@@ -23,5 +23,7 @@ public class QuizQuestionDto {
     private String optionC;
 
     private String optionD;
+
+    private char correctOption;
 }
 

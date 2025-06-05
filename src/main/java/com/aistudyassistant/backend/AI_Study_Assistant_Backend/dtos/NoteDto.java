@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Builder
 public class NoteDto {
-    private Long id;
+    private Long noteId;
 
     private String fileName;
 

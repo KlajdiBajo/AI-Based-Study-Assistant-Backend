@@ -13,11 +13,12 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "quiz_questions")
 public class QuizQuestion {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long quizQuestionid;
 
-    @Lob
+    @Column(columnDefinition = "TEXT") // Replaces @Lob to avoid LOB stream issues
     private String questionText;
 
     private String optionA;

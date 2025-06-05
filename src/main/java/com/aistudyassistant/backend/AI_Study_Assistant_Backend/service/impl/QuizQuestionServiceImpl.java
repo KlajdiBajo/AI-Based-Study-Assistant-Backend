@@ -10,6 +10,7 @@ import com.aistudyassistant.backend.AI_Study_Assistant_Backend.service.QuizQuest
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -39,6 +40,7 @@ public class QuizQuestionServiceImpl implements QuizQuestionService {
                 .orElseThrow(() -> new RuntimeException("Quiz not found or does not belong to user"));
 
         List<QuizQuestion> entities = questions.stream()
+                .peek(this::validateQuizQuestion)
                 .map(dto -> {
                     QuizQuestion q = questionMapper.mapFrom(dto);
                     q.setQuiz(quiz);
@@ -48,5 +50,29 @@ public class QuizQuestionServiceImpl implements QuizQuestionService {
 
         quizQuestionRepository.saveAll(entities);
     }
-}
 
+    // ==== Null byte validation helpers ====
+
+    private boolean containsNullBytes(String text) {
+        if (text == null) return false;
+        return text.indexOf(0) != -1; // detects actual null byte (0x00)
+    }
+
+    private void validateQuizQuestion(QuizQuestionDto question) {
+        List<String> fields = Arrays.asList(
+                question.getQuestionText(),
+                question.getOptionA(),
+                question.getOptionB(),
+                question.getOptionC(),
+                question.getOptionD(),
+                question.getCorrectAnswer()
+        );
+
+        for (String field : fields) {
+            if (containsNullBytes(field)) {
+                throw new IllegalArgumentException("🚫 Null byte found in field: " +
+                        field.replace("\u0000", "[NULL]"));
+            }
+        }
+    }
+}

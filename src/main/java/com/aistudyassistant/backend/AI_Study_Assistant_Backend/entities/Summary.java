@@ -18,9 +18,9 @@ public class Summary {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long summaryId;
 
-    @Lob
+    @Column(columnDefinition = "TEXT")
     private String content;
 
     private LocalDateTime generatedAt;

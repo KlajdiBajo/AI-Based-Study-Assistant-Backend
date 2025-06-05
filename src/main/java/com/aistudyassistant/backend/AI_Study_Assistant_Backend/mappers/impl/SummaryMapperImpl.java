@@ -17,16 +17,6 @@ public class SummaryMapperImpl implements Mapper<Summary, SummaryDto> {
     private final ModelMapper modelMapper;
     private final NoteRepository noteRepository;
 
-    @PostConstruct
-    public void init() {
-        // Avoid ambiguity by explicitly creating a TypeMap and disabling implicit matching
-        TypeMap<SummaryDto, Summary> typeMap = modelMapper.createTypeMap(SummaryDto.class, Summary.class);
-        typeMap.addMappings(mapper -> {
-            mapper.map(SummaryDto::getSummaryId, Summary::setId);
-            mapper.skip(Summary::setNote);
-        });
-    }
-
     @Override
     public SummaryDto mapTo(Summary summary) {
         SummaryDto dto = modelMapper.map(summary, SummaryDto.class);

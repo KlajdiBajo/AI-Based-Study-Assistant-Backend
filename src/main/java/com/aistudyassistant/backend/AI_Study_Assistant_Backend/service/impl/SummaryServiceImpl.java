@@ -11,6 +11,9 @@ import com.aistudyassistant.backend.AI_Study_Assistant_Backend.service.SummarySe
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 public class SummaryServiceImpl implements SummaryService {
@@ -26,10 +29,21 @@ public class SummaryServiceImpl implements SummaryService {
                 .filter(n -> n.getUser().getEmail().equals(username))
                 .orElseThrow(() -> new ResourceNotFoundException("Note not found or does not belong to user"));
 
-        Summary summary = summaryMapper.mapFrom(summaryDto);
-        summary.setNote(note);
-        Summary summarysaved = summaryRepository.save(summary);
-        return summaryMapper.mapTo(summarysaved);
+        Optional<Summary> existingSummary = summaryRepository.findByNote(note);
+
+        Summary summary;
+        if (existingSummary.isPresent()) {
+            summary = existingSummary.get();
+            summary.setContent(summaryDto.getContent());
+            summary.setGeneratedAt(LocalDateTime.now());
+        } else {
+            summary = summaryMapper.mapFrom(summaryDto);
+            summary.setNote(note);
+            summary.setGeneratedAt(LocalDateTime.now());
+        }
+
+        Summary saved = summaryRepository.save(summary);
+        return summaryMapper.mapTo(saved);
     }
 
     @Override

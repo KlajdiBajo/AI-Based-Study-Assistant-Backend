@@ -13,7 +13,10 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/notes")
@@ -47,38 +50,63 @@ public class NoteController {
         return ResponseEntity.ok(notes);
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<NoteDto> getNoteById(
-            @PathVariable Long id,
+    @GetMapping("/{noteId}")
+    public ResponseEntity<?> getNoteById(
+            @PathVariable Long noteId,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
-        return noteService.getNoteById(id, userDetails.getUsername())
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.status(HttpStatus.FORBIDDEN).build());
+        Optional<NoteDto> noteOpt = noteService.getNoteById(noteId, userDetails.getUsername());
+
+        if (noteOpt.isPresent()) {
+            NoteDto note = noteOpt.get();
+
+            // Return format expected by Flask API
+            Map<String, Object> response = new HashMap<>();
+            response.put("noteId", note.getNoteId());  // Your DTO uses 'id', not 'noteId'
+            response.put("title", note.getFileName()); // Using fileName as title since you don't have a title field
+            response.put("filePath", note.getFileURL());
+            response.put("fileName", note.getFileName());
+            response.put("uploadedAt", note.getUploadedAt());
+            response.put("status", note.getStatus());
+            response.put("userId", note.getUserId());
+
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Note not found or access denied"));
+        }
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{noteId}")
     public ResponseEntity<?> deleteNote(
-            @PathVariable Long id,
+            @PathVariable Long noteId,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
-        noteService.deleteNoteById(id, userDetails.getUsername());
+        noteService.deleteNoteById(noteId, userDetails.getUsername());
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/notes/{id}/process-ai")
+    @PostMapping("/{noteId}/process-ai")
     public ResponseEntity<?> processNoteWithAI(
-            @PathVariable Long id,
+            @PathVariable Long noteId,
             @RequestHeader("Authorization") String authHeader
     ) {
         try {
-            noteService.processNoteWithAiModel(id, authHeader);
-            return ResponseEntity.ok("AI content processed and saved successfully");
+            noteService.processNoteWithAiModel(noteId, authHeader);
+            return ResponseEntity.ok(Map.of("message", "AI content processed and saved successfully", "noteId", noteId));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error during AI processing: " + e.getMessage());
+                    .body(Map.of("error", "Error during AI processing: " + e.getMessage()));
         }
     }
-}
 
+    // Test endpoint for debugging
+    @GetMapping("/test")
+    public ResponseEntity<Map<String, Object>> testEndpoint() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "Note controller is working!");
+        response.put("timestamp", System.currentTimeMillis());
+        return ResponseEntity.ok(response);
+    }
+}
