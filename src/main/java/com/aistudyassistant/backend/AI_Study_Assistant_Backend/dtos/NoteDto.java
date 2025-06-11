@@ -16,6 +16,8 @@ public class NoteDto {
 
     private String fileName;
 
+    private String title;
+
     private String fileURL;
 
     private String status;

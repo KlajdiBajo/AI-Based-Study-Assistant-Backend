@@ -18,7 +18,7 @@ public class QuizQuestion {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long quizQuestionid;
 
-    @Column(columnDefinition = "TEXT") // Replaces @Lob to avoid LOB stream issues
+    @Column(columnDefinition = "TEXT")
     private String questionText;
 
     private String optionA;

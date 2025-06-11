@@ -4,7 +4,6 @@ import com.aistudyassistant.backend.AI_Study_Assistant_Backend.dtos.responses.Ge
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.dtos.responses.RefreshTokenResponse;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.dtos.responses.RegisterVerifyResponse;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.User;
-import com.aistudyassistant.backend.AI_Study_Assistant_Backend.exceptions.ResourceNotFoundException;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.repository.UserRepository;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.security.JwtHelper;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.service.JwtService;
@@ -16,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
@@ -51,7 +51,7 @@ public class JwtServiceImpl implements JwtService {
                     String finalUserName = username.substring(8);
                     UserDetails userDetails = userDetailsService.loadUserByUsername(finalUserName);
                     User user = userRepository.findByEmail(finalUserName).orElseThrow(
-                            ()-> new ResourceNotFoundException("User not found with email "+finalUserName)
+                            () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with email " + finalUserName)
                     );
                     if(jwtHelper.isRefreshTokenValid(refreshToken, userDetails))
                     {
@@ -78,7 +78,7 @@ public class JwtServiceImpl implements JwtService {
             {
                 return new ResponseEntity<>(GeneralAPIResponse.builder().message("Invalid refresh token").build() , HttpStatus.BAD_REQUEST);
             }
-            catch(ResourceNotFoundException e)
+            catch(ResponseStatusException e)
             {
                 return new ResponseEntity<>(GeneralAPIResponse.builder().message("User not found").build() , HttpStatus.NOT_FOUND);
             }

@@ -1,0 +1,17 @@
+package com.aistudyassistant.backend.AI_Study_Assistant_Backend.dtos;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class UserAnswerDto {
+
+    private Long questionId;
+    private char selectedOption;
+
+}

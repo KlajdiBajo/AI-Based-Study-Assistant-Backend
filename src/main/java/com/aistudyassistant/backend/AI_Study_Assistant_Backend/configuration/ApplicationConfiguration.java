@@ -1,10 +1,10 @@
 package com.aistudyassistant.backend.AI_Study_Assistant_Backend.configuration;
 
-import com.aistudyassistant.backend.AI_Study_Assistant_Backend.exceptions.ResourceNotFoundException;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -13,6 +13,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
 @Configuration
 @RequiredArgsConstructor
@@ -23,12 +24,12 @@ public class ApplicationConfiguration {
     @Bean
     public PasswordEncoder passwordEncoder(){
         return new BCryptPasswordEncoder();
-    };
+    }
 
     @Bean
     public UserDetailsService userDetailsService(){
         return username -> userRepository.findByEmail(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 
     @Bean
@@ -50,4 +51,3 @@ public class ApplicationConfiguration {
         return new RestTemplate();
     }
 }
-

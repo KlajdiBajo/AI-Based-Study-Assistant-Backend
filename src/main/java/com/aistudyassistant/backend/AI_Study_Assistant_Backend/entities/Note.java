@@ -22,6 +22,8 @@ public class Note {
 
     private String fileName;
 
+    private String title;
+
     private String fileURL;
 
     private String status;
@@ -31,5 +33,4 @@ public class Note {
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
-
 }

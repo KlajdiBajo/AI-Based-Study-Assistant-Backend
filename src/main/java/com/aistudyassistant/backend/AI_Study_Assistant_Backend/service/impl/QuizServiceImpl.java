@@ -3,13 +3,14 @@ package com.aistudyassistant.backend.AI_Study_Assistant_Backend.service.impl;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.dtos.QuizDto;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.Note;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.Quiz;
-import com.aistudyassistant.backend.AI_Study_Assistant_Backend.exceptions.ResourceNotFoundException;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.mappers.Mapper;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.repository.NoteRepository;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.repository.QuizRepository;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.service.QuizService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
@@ -23,7 +24,7 @@ public class QuizServiceImpl implements QuizService {
     public QuizDto save(QuizDto quizDto, String username) {
         Note note = noteRepository.findById(quizDto.getNoteId())
                 .filter(n -> n.getUser().getEmail().equals(username))
-                .orElseThrow(() -> new ResourceNotFoundException("Note not found or does not belong to user"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Note not found or does not belong to user"));
 
         Quiz quiz = quizMapper.mapFrom(quizDto);
         quiz.setNote(note);
@@ -35,10 +36,10 @@ public class QuizServiceImpl implements QuizService {
     public QuizDto getByNoteId(Long noteId, String username) {
         Note note = noteRepository.findById(noteId)
                 .filter(n -> n.getUser().getEmail().equals(username))
-                .orElseThrow(() -> new ResourceNotFoundException("Note not found or does not belong to user"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Note not found or does not belong to user"));
 
         Quiz quiz = quizRepository.findByNote(note)
-                .orElseThrow(() -> new ResourceNotFoundException("Quiz not found for this note!"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Quiz not found for this note!"));
 
         return quizMapper.mapTo(quiz);
     }

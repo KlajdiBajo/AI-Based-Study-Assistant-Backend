@@ -51,7 +51,7 @@ public class NoteServiceImpl implements NoteService {
 
     // ULTIMATE debugging method to find exactly where null bytes are hiding
     private void debugNullBytes(QuizQuestionDto question, int questionNumber) {
-        logger.info("🔍 DEBUGGING: Question {} null byte analysis", questionNumber);
+        logger.info("DEBUGGING: Question {} null byte analysis", questionNumber);
 
         String[] fieldNames = {"questionText", "optionA", "optionB", "optionC", "optionD", "correctAnswer"};
         String[] fieldValues = {
@@ -97,7 +97,7 @@ public class NoteServiceImpl implements NoteService {
                     }
                 }
 
-                logger.info("🔍 Field: {} | Length: {} | Unicode null: {} | Hex null: {} | String null: {} | Byte null: {} (count: {}) | Char null: {}",
+                logger.info("Field: {} | Length: {} | Unicode null: {} | Hex null: {} | String null: {} | Byte null: {} (count: {}) | Char null: {}",
                         fieldName,
                         fieldValue.length(),
                         hasUnicodeNull,
@@ -109,7 +109,7 @@ public class NoteServiceImpl implements NoteService {
                 );
 
                 if (hasByteNull && posIndex > 0) {
-                    logger.error("🚨 NULL BYTE POSITIONS in {}: {}", fieldName,
+                    logger.error("NULL BYTE POSITIONS in {}: {}", fieldName,
                             Arrays.toString(Arrays.copyOf(nullBytePositions, posIndex)));
                 }
 
@@ -125,9 +125,9 @@ public class NoteServiceImpl implements NoteService {
                         visualPreview.append(c);
                     }
                 }
-                logger.info("🔍 Preview: {}", visualPreview.toString());
+                logger.info("Preview: {}", visualPreview.toString());
             } else {
-                logger.info("🔍 Field: {} | Value: NULL", fieldName);
+                logger.info("Field: {} | Value: NULL", fieldName);
             }
         }
     }
@@ -257,13 +257,13 @@ public class NoteServiceImpl implements NoteService {
 
     // ENHANCED Safe database save method with ultimate debugging and CORRECT OPTION FIX
     public void safeQuizQuestionSave(Long quizId, List<QuizQuestionDto> questions, String username) {
-        logger.info("🛡️ SPRING BOOT: Starting ENHANCED safe database save for {} questions", questions.size());
+        logger.info("SPRING BOOT: Starting ENHANCED safe database save for {} questions", questions.size());
 
         int savedCount = 0;
         for (int i = 0; i < questions.size(); i++) {
             QuizQuestionDto question = questions.get(i);
             try {
-                logger.info("🔍 DEBUGGING: Processing question {} for save", i + 1);
+                logger.info("DEBUGGING: Processing question {} for save", i + 1);
 
                 // STEP 1: Debug the original question
                 debugNullBytes(question, i + 1);
@@ -287,24 +287,24 @@ public class NoteServiceImpl implements NoteService {
                     if (correctOpt == 'A' || correctOpt == 'B' || correctOpt == 'C' || correctOpt == 'D' ||
                             correctOpt == 'a' || correctOpt == 'b' || correctOpt == 'c' || correctOpt == 'd') {
                         superCleanQuestion.setCorrectOption(Character.toUpperCase(correctOpt));
-                        logger.info("🔧 Set correctOption to: '{}'", Character.toUpperCase(correctOpt));
+                        logger.info("Set correctOption to: '{}'", Character.toUpperCase(correctOpt));
                     } else {
                         // If the correct answer is not A/B/C/D, default to 'A'
                         superCleanQuestion.setCorrectOption('A');
-                        logger.warn("⚠️ Invalid correctAnswer '{}', using fallback correctOption: 'A'", correctOpt);
+                        logger.warn("Invalid correctAnswer '{}', using fallback correctOption: 'A'", correctOpt);
                     }
                 } else {
                     superCleanQuestion.setCorrectOption('A'); // Default fallback
-                    logger.warn("⚠️ Empty correctAnswer, using fallback correctOption: 'A'");
+                    logger.warn("Empty correctAnswer, using fallback correctOption: 'A'");
                 }
 
                 // Log the correctOption value for debugging
-                logger.info("🔍 Final correctOption set to: '{}' (char code: {})",
+                logger.info("Final correctOption set to: '{}' (char code: {})",
                         superCleanQuestion.getCorrectOption(),
                         (int)superCleanQuestion.getCorrectOption());
 
                 // STEP 3: Debug the cleaned question
-                logger.info("🧹 After SUPER cleaning:");
+                logger.info("After SUPER cleaning:");
                 debugNullBytes(superCleanQuestion, i + 1);
 
                 // STEP 4: Final validation with detailed logging
@@ -321,14 +321,14 @@ public class NoteServiceImpl implements NoteService {
                 for (int j = 0; j < finalFields.length; j++) {
                     String field = finalFields[j];
                     if (field == null || field.trim().isEmpty()) {
-                        logger.warn("⚠️ Field {} is null or empty after cleaning", j);
+                        logger.warn("Field {} is null or empty after cleaning", j);
                         isValid = false;
                         break;
                     }
 
                     // Final null byte check
                     if (field.contains("\0") || field.contains("\u0000")) {
-                        logger.error("🚨 CRITICAL: Field {} still contains null bytes after super cleaning!", j);
+                        logger.error("CRITICAL: Field {} still contains null bytes after super cleaning!", j);
                         isValid = false;
                         break;
                     }
@@ -336,13 +336,13 @@ public class NoteServiceImpl implements NoteService {
 
                 // Additional check for correctOption
                 if (superCleanQuestion.getCorrectOption() == '\0' || superCleanQuestion.getCorrectOption() == 0) {
-                    logger.error("🚨 CRITICAL: correctOption is null character! Setting to 'A'");
+                    logger.error("CRITICAL: correctOption is null character! Setting to 'A'");
                     superCleanQuestion.setCorrectOption('A');
                 }
 
                 if (isValid) {
-                    logger.info("✅ Question {} passed all validations, attempting database save", i + 1);
-                    logger.info("🎯 Final question data: correctOption='{}', correctAnswer='{}'",
+                    logger.info("Question {} passed all validations, attempting database save", i + 1);
+                    logger.info("Final question data: correctOption='{}', correctAnswer='{}'",
                             superCleanQuestion.getCorrectOption(),
                             superCleanQuestion.getCorrectAnswer());
 
@@ -350,20 +350,20 @@ public class NoteServiceImpl implements NoteService {
                     List<QuizQuestionDto> singleQuestion = Arrays.asList(superCleanQuestion);
                     quizQuestionService.saveAll(quizId, singleQuestion, username);
                     savedCount++;
-                    logger.info("🎉 SPRING BOOT: Successfully saved question {}/{}", i + 1, questions.size());
+                    logger.info("SPRING BOOT: Successfully saved question {}/{}", i + 1, questions.size());
 
                 } else {
-                    logger.error("❌ Question {} failed validation, skipping save", i + 1);
+                    logger.error("Question {} failed validation, skipping save", i + 1);
                 }
 
             } catch (Exception e) {
-                logger.error("❌ SPRING BOOT: Failed to save question {}: {}", i + 1, e.getMessage());
-                logger.error("🔍 Exception type: {}", e.getClass().getSimpleName());
+                logger.error("SPRING BOOT: Failed to save question {}: {}", i + 1, e.getMessage());
+                logger.error("Exception type: {}", e.getClass().getSimpleName());
 
                 // Print the actual SQL parameters if possible
                 if (e.getMessage().contains("invalid byte sequence")) {
-                    logger.error("🚨 This is definitely a null byte issue in the database parameters");
-                    logger.error("🔍 Check if correctOption field contains null character");
+                    logger.error("This is definitely a null byte issue in the database parameters");
+                    logger.error("Check if correctOption field contains null character");
                 }
             }
         }
@@ -439,7 +439,7 @@ public class NoteServiceImpl implements NoteService {
 
     @Override
     public void processNoteWithAiModel(Long noteId, String jwtToken) {
-        logger.info("🚀 SPRING BOOT: Starting AI processing for note ID: {}", noteId);
+        logger.info("SPRING BOOT: Starting AI processing for note ID: {}", noteId);
 
         String flaskUrl = "http://localhost:5000/api/process";
 
@@ -489,12 +489,12 @@ public class NoteServiceImpl implements NoteService {
                     summaryDto.setNoteId(noteId);
                     summaryDto.setContent(cleanedSummary);
                     summaryService.save(summaryDto, username);
-                    logger.info("✅ SPRING BOOT: Summary saved successfully");
+                    logger.info("SPRING BOOT: Summary saved successfully");
                 } else {
-                    logger.warn("⚠️ SPRING BOOT: Summary is empty after cleaning");
+                    logger.warn("SPRING BOOT: Summary is empty after cleaning");
                 }
             } else {
-                logger.warn("⚠️ SPRING BOOT: No valid summary received from Flask");
+                logger.warn("SPRING BOOT: No valid summary received from Flask");
             }
 
             // --- Process MCQs with SUPER AGGRESSIVE cleaning ---
@@ -509,7 +509,7 @@ public class NoteServiceImpl implements NoteService {
                 quizDto.setNoteId(noteId);
                 quizDto.setCreatedAt(LocalDateTime.now());
                 QuizDto savedQuiz = quizService.save(quizDto, username);
-                logger.info("✅ SPRING BOOT: Quiz created with ID: {}", savedQuiz.getQuizId());
+                logger.info("SPRING BOOT: Quiz created with ID: {}", savedQuiz.getQuizId());
 
                 List<QuizQuestionDto> questions = new ArrayList<>();
 
@@ -580,13 +580,13 @@ public class NoteServiceImpl implements NoteService {
                                 cleanedQ.getOptionD() != null && !cleanedQ.getOptionD().isEmpty()) {
 
                             questions.add(cleanedQ);
-                            logger.info("✅ SPRING BOOT: MCQ {} processed and super-cleaned successfully", i + 1);
+                            logger.info("SPRING BOOT: MCQ {} processed and super-cleaned successfully", i + 1);
                         } else {
-                            logger.warn("⚠️ SPRING BOOT: MCQ {} failed final DTO validation", i + 1);
+                            logger.warn("SPRING BOOT: MCQ {} failed final DTO validation", i + 1);
                         }
 
                     } catch (Exception e) {
-                        logger.error("❌ SPRING BOOT: Error processing MCQ {}: {}", i + 1, e.getMessage(), e);
+                        logger.error("SPRING BOOT: Error processing MCQ {}: {}", i + 1, e.getMessage(), e);
                     }
                 }
 
@@ -596,7 +596,7 @@ public class NoteServiceImpl implements NoteService {
                     // Use our enhanced safe save method
                     safeQuizQuestionSave(savedQuiz.getQuizId(), questions, username);
                 } else {
-                    logger.warn("⚠️ SPRING BOOT: No questions were valid for saving");
+                    logger.warn("SPRING BOOT: No questions were valid for saving");
                 }
             } else {
                 logger.info("SPRING BOOT: No MCQs received from Flask API");
@@ -605,7 +605,7 @@ public class NoteServiceImpl implements NoteService {
             logger.info("🎉 SPRING BOOT: AI processing completed for note ID: {}", noteId);
 
         } catch (Exception e) {
-            logger.error("❌ SPRING BOOT: Error calling Flask API: {}", e.getMessage(), e);
+            logger.error("SPRING BOOT: Error calling Flask API: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to process note with AI: " + e.getMessage());
         }
     }

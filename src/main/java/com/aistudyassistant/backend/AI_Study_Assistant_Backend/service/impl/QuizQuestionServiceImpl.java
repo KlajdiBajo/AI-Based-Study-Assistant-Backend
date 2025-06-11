@@ -8,7 +8,9 @@ import com.aistudyassistant.backend.AI_Study_Assistant_Backend.repository.QuizQu
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.repository.QuizRepository;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.service.QuizQuestionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Arrays;
 import java.util.List;
@@ -26,7 +28,7 @@ public class QuizQuestionServiceImpl implements QuizQuestionService {
     public List<QuizQuestionDto> getQuestionsByQuizId(Long quizId, String username) {
         Quiz quiz = quizRepository.findById(quizId)
                 .filter(q -> q.getNote().getUser().getEmail().equals(username))
-                .orElseThrow(() -> new RuntimeException("Quiz not found or does not belong to user"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Quiz not found or does not belong to user"));
 
         return quizQuestionRepository.findByQuiz(quiz).stream()
                 .map(questionMapper::mapTo)
@@ -37,7 +39,7 @@ public class QuizQuestionServiceImpl implements QuizQuestionService {
     public void saveAll(Long quizId, List<QuizQuestionDto> questions, String username) {
         Quiz quiz = quizRepository.findById(quizId)
                 .filter(q -> q.getNote().getUser().getEmail().equals(username))
-                .orElseThrow(() -> new RuntimeException("Quiz not found or does not belong to user"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Quiz not found or does not belong to user"));
 
         List<QuizQuestion> entities = questions.stream()
                 .peek(this::validateQuizQuestion)
@@ -70,7 +72,8 @@ public class QuizQuestionServiceImpl implements QuizQuestionService {
 
         for (String field : fields) {
             if (containsNullBytes(field)) {
-                throw new IllegalArgumentException("🚫 Null byte found in field: " +
+                // IllegalArgumentException is correct here - it's a validation error, not a "not found" error
+                throw new IllegalArgumentException("Null byte found in field: " +
                         field.replace("\u0000", "[NULL]"));
             }
         }

@@ -9,7 +9,6 @@ import com.aistudyassistant.backend.AI_Study_Assistant_Backend.dtos.responses.Us
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.User;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.Username;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.enums.Role;
-import com.aistudyassistant.backend.AI_Study_Assistant_Backend.exceptions.ResourceNotFoundException;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.repository.UserRepository;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.service.AuthenticationService;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.service.EmailService;
@@ -26,6 +25,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Optional;
@@ -137,7 +137,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         String otpEntered = registerVerifyRequest.getOtp().trim();
         try {
             User user = userRepository.findByEmail(emailEntered).orElseThrow(
-                    ResourceNotFoundException::new
+                    () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with email " + emailEntered)
             );
             String cachedOtp = cacheManager.getCache("user").get(emailEntered, String.class);
             if (cachedOtp == null) {
@@ -152,9 +152,8 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 log.info("the user email {} is successfully verified", user.isEnabled());
                 RegisterVerifyResponse jwtToken = jwtService.generateJwtToken(user);
                 return new ResponseEntity<>(jwtToken, HttpStatus.CREATED);
-
             }
-        } catch (ResourceNotFoundException ex) {
+        } catch (ResponseStatusException ex) {
             log.info("user with email {} not found in database", emailEntered);
             return new ResponseEntity<>(GeneralAPIResponse.builder().message("user with this email does not exist").build(), HttpStatus.NOT_FOUND);
         }
@@ -166,7 +165,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         String password = loginRequest.getPassword();
         try {
             User user = userRepository.findByEmail(email).orElseThrow(
-                    ResourceNotFoundException::new
+                    () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with email " + email)
             );
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(email, password));
             if (!user.getIsVerified()) {
@@ -176,7 +175,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             RegisterVerifyResponse jwtToken = jwtService.generateJwtToken(user);
             return new ResponseEntity<>(jwtToken, HttpStatus.OK);
 
-        } catch (ResourceNotFoundException ex) {
+        } catch (ResponseStatusException ex) {
             log.info("user whose email is {} not found in Database", email);
             return new ResponseEntity<>(GeneralAPIResponse.builder().message("User with this email does not exist").build(), HttpStatus.NOT_FOUND);
         }
@@ -184,8 +183,6 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             log.error("Failed to authenticate user with email {}", email, e);
             return new ResponseEntity<>(GeneralAPIResponse.builder().message("Invalid credentials").build(), HttpStatus.BAD_REQUEST);
         }
-
-
     }
 
     @Override
@@ -193,7 +190,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         String email = forgotPasswordRequest.getEmail().trim().toLowerCase();
         try {
             User user = userRepository.findByEmail(email).orElseThrow(
-                    ResourceNotFoundException::new
+                    () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with email " + email)
             );
             if (cacheManager.getCache("user").get(email, String.class) != null) {
                 log.info("the otp is already present in cache memory for user {}, kindly retry after some time", email);
@@ -211,7 +208,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RegisterResponse.builder()
                     .message("Failed to send OTP email. Please try again later.")
                     .build());
-        } catch (ResourceNotFoundException ex) {
+        } catch (ResponseStatusException ex) {
             log.info("user with email {} not found in Database", email);
             return new ResponseEntity<>(GeneralAPIResponse.builder().message("User with email not found in database").build(), HttpStatus.NOT_FOUND);
         } catch (Exception e) {
@@ -228,11 +225,11 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         String otp = registerVerifyRequest.getOtp().trim();
         try {
             User user = userRepository.findByEmail(email).orElseThrow(
-                    ResourceNotFoundException::new
+                    () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with email " + email)
             );
-        } catch (ResourceNotFoundException ex) {
+        } catch (ResponseStatusException ex) {
             log.info("user with email {} not found in database ", email);
-            return new ResponseEntity<>(GeneralAPIResponse.builder().message("iUser with this email does not exist").build(), HttpStatus.NOT_FOUND);
+            return new ResponseEntity<>(GeneralAPIResponse.builder().message("User with this email does not exist").build(), HttpStatus.NOT_FOUND);
         }
         String cachedOtp = cacheManager.getCache("user").get(email, String.class);
         if (cachedOtp == null) {
@@ -257,12 +254,12 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         }
         try {
             User user = userRepository.findByEmail(email).orElseThrow(
-                    ResourceNotFoundException::new
+                    () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with email " + email)
             );
             user.setPassword(passwordEncoder.encode(newPassword));
             userRepository.save(user);
             return new ResponseEntity<>(GeneralAPIResponse.builder().message("Password has been reset successfully").build(), HttpStatus.OK);
-        } catch (ResourceNotFoundException ex) {
+        } catch (ResponseStatusException ex) {
             log.info("user with email {} not found in the database", email);
             return new ResponseEntity<>(GeneralAPIResponse.builder().message("user does not exist with this email").build(), HttpStatus.NOT_FOUND);
         }
@@ -273,7 +270,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         String email = forgotPasswordRequest.getEmail().trim().toLowerCase();
         try {
             User user = userRepository.findByEmail(email).orElseThrow(
-                    ResourceNotFoundException::new
+                    () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with email " + email)
             );
             return new ResponseEntity<>(UserProfile.builder()
                     .id(user.getId())
@@ -286,10 +283,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                     .isOfficiallyEnabled(user.getIsVerified())
                     .build(), HttpStatus.OK);
 
-        } catch (ResourceNotFoundException ex) {
+        } catch (ResponseStatusException ex) {
             log.info("user with email {} not found in the Database", email);
             return new ResponseEntity<>(GeneralAPIResponse.builder().message("user does not exist with this email").build(), HttpStatus.NOT_FOUND);
         }
     }
 }
-
