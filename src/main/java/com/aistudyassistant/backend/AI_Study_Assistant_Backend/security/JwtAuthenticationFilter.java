@@ -1,5 +1,6 @@
 package com.aistudyassistant.backend.AI_Study_Assistant_Backend.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.MalformedJwtException;
 import jakarta.servlet.FilterChain;
@@ -9,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -18,6 +20,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.ZonedDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -25,6 +30,8 @@ import java.io.IOException;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtHelper jwtHelper;
     private final UserDetailsService userDetailsService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
         String authorizationHeader = request.getHeader("Authorization");
@@ -32,7 +39,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String username = null;
 
         if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-            log.warn("Authorization header is not there or does not start with Bearer");
             filterChain.doFilter(request, response);
             return;
         }
@@ -41,10 +47,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             username = jwtHelper.extractUsername(token);
         }
-        catch(IllegalStateException e) {log.error("Error extracting username from token");}
-        catch(ExpiredJwtException e) {log.error("Token has expired");}
-        catch(MalformedJwtException e) {log.error("Token is malformed");}
-        catch(Exception e) {log.error("An error occurred while extracting username from token");}
+        catch(IllegalStateException e) {
+            sendErrorResponse(response, request.getRequestURI(), "Invalid JWT token format");
+            return;
+        }
+        catch(ExpiredJwtException e) {
+            sendErrorResponse(response, request.getRequestURI(), "JWT token has expired");
+            return;
+        }
+        catch(MalformedJwtException e) {
+            sendErrorResponse(response, request.getRequestURI(), "JWT token is malformed");
+            return;
+        }
+        catch(Exception e) {
+            sendErrorResponse(response, request.getRequestURI(), "Invalid JWT token");
+            return;
+        }
 
         if(username != null && SecurityContextHolder.getContext().getAuthentication() == null)
         {
@@ -56,11 +74,31 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
             else {
                 log.error("Token is invalid");
+                sendErrorResponse(response, request.getRequestURI(), "JWT token is invalid or expired");
+                return;
             }
         }
         else {
             log.error("Username is null or Security Context Authentication is not null");
         }
         filterChain.doFilter(request, response);
+    }
+
+    // Helper method to send JSON error response consistent with Global Exception Handler
+    private void sendErrorResponse(HttpServletResponse response, String path, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding("UTF-8");
+
+        Map<String, Object> errorBody = new HashMap<>();
+        errorBody.put("timestamp", ZonedDateTime.now());
+        errorBody.put("status", 401);
+        errorBody.put("error", "Unauthorized");
+        errorBody.put("path", path);
+        errorBody.put("message", message);
+
+        String jsonResponse = objectMapper.writeValueAsString(errorBody);
+        response.getWriter().write(jsonResponse);
+        response.getWriter().flush();
     }
 }

@@ -4,13 +4,24 @@ import com.aistudyassistant.backend.AI_Study_Assistant_Backend.dtos.NoteDto;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.User;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.repository.UserRepository;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.service.NoteService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -21,18 +32,45 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/notes")
 @RequiredArgsConstructor
+@Slf4j
+@Tag(name = "Notes", description = "Note management APIs for AI Study Assistant")
+@SecurityRequirement(name = "bearerAuth")
 public class NoteController {
 
     private final NoteService noteService;
     private final UserRepository userRepository;
 
-    @PostMapping(value = "/upload", consumes = "multipart/form-data")
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload a new note", description = "Upload a study note file (PDF, DOCX, TXT, DOC) for AI processing")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Note uploaded successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = NoteDto.class))),
+            @ApiResponse(responseCode = "400", description = """
+                Bad Request:
+                - File cannot be null or empty
+                - File must have a valid name
+                - File must have a valid extension
+                - File type not supported. Allowed types: PDF, DOCX, TXT, DOC
+                - Note data cannot be null
+                - User ID is required
+            """),
+            @ApiResponse(responseCode = "401", description = "Unauthorized: Invalid or missing JWT token"),
+            @ApiResponse(responseCode = "404", description = "Not Found: User not found"),
+            @ApiResponse(responseCode = "413", description = "Payload Too Large: File size exceeds maximum limit of 50MB"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error: Failed to save file or unexpected error")
+    })
     public ResponseEntity<NoteDto> uploadNote(
+            @Parameter(description = "The note file to upload", required = true)
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal UserDetails userDetails
     ) throws IOException {
+        if (userDetails == null || userDetails.getUsername() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User authentication required");
+        }
+
         User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         NoteDto dto = NoteDto.builder()
                 .userId(user.getId())
@@ -43,18 +81,44 @@ public class NoteController {
     }
 
     @GetMapping
+    @Operation(summary = "Get user's notes", description = "Retrieve all notes belonging to the authenticated user")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Notes retrieved successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = NoteDto.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthorized: Invalid or missing JWT token"),
+            @ApiResponse(responseCode = "404", description = "Not Found: User not found"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error: Error retrieving user notes")
+    })
     public ResponseEntity<List<NoteDto>> getUserNotes(
             @AuthenticationPrincipal UserDetails userDetails
     ) {
+        if (userDetails == null || userDetails.getUsername() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User authentication required");
+        }
+
         List<NoteDto> notes = noteService.getNotesByUser(userDetails.getUsername());
         return ResponseEntity.ok(notes);
     }
 
     @GetMapping("/{noteId}")
-    public ResponseEntity<?> getNoteById(
+    @Operation(summary = "Get note by ID", description = "Retrieve a specific note by its ID (only if user owns it)")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Note retrieved successfully"),
+            @ApiResponse(responseCode = "400", description = "Bad Request: Note ID must be a positive number"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized: Invalid or missing JWT token"),
+            @ApiResponse(responseCode = "404", description = "Not Found: Note not found or access denied"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error: Error retrieving note")
+    })
+    public ResponseEntity<Map<String, Object>> getNoteById(
+            @Parameter(description = "The ID of the note to retrieve", required = true)
             @PathVariable Long noteId,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
+        if (userDetails == null || userDetails.getUsername() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User authentication required");
+        }
+
         Optional<NoteDto> noteOpt = noteService.getNoteById(noteId, userDetails.getUsername());
 
         if (noteOpt.isPresent()) {
@@ -62,8 +126,8 @@ public class NoteController {
 
             // Return format expected by Flask API
             Map<String, Object> response = new HashMap<>();
-            response.put("noteId", note.getNoteId());  // Your DTO uses 'id', not 'noteId'
-            response.put("title", note.getFileName()); // Using fileName as title since you don't have a title field
+            response.put("noteId", note.getNoteId());
+            response.put("title", note.getFileName());
             response.put("filePath", note.getFileURL());
             response.put("fileName", note.getFileName());
             response.put("uploadedAt", note.getUploadedAt());
@@ -72,41 +136,69 @@ public class NoteController {
 
             return ResponseEntity.ok(response);
         } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Note not found or access denied"));
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Note not found or access denied");
         }
     }
 
     @DeleteMapping("/{noteId}")
-    public ResponseEntity<?> deleteNote(
+    @Operation(summary = "Delete note", description = "Delete a specific note by its ID (only if user owns it)")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Note deleted successfully"),
+            @ApiResponse(responseCode = "400", description = "Bad Request: Note ID must be a positive number"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized: Invalid or missing JWT token"),
+            @ApiResponse(responseCode = "404", description = "Not Found: Note not found or access denied"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error: Error deleting note")
+    })
+    public ResponseEntity<Map<String, String>> deleteNote(
+            @Parameter(description = "The ID of the note to delete", required = true)
             @PathVariable Long noteId,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
+        if (userDetails == null || userDetails.getUsername() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User authentication required");
+        }
+
         noteService.deleteNoteById(noteId, userDetails.getUsername());
-        return ResponseEntity.noContent().build();
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Note deleted successfully");
+        response.put("noteId", noteId.toString());
+
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{noteId}/process-ai")
-    public ResponseEntity<?> processNoteWithAI(
+    @Operation(summary = "Process note with AI", description = "Send note to AI service for summary and quiz generation")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "AI processing completed successfully"),
+            @ApiResponse(responseCode = "400", description = "Bad Request: Note ID must be a positive number or JWT token invalid"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized: Invalid or expired JWT token"),
+            @ApiResponse(responseCode = "404", description = "Not Found: Note not found or access denied"),
+            @ApiResponse(responseCode = "503", description = "Service Unavailable: AI service is currently unavailable"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error: Unexpected error during AI processing")
+    })
+    public ResponseEntity<Map<String, Object>> processNoteWithAI(
+            @Parameter(description = "The ID of the note to process with AI", required = true)
             @PathVariable Long noteId,
-            @RequestHeader("Authorization") String authHeader
+            @Parameter(description = "JWT token for authentication", required = true)
+            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal UserDetails userDetails
     ) {
-        try {
-            noteService.processNoteWithAiModel(noteId, authHeader);
-            return ResponseEntity.ok(Map.of("message", "AI content processed and saved successfully", "noteId", noteId));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Error during AI processing: " + e.getMessage()));
+        if (userDetails == null || userDetails.getUsername() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User authentication required");
         }
-    }
 
-    // Test endpoint for debugging
-    @GetMapping("/test")
-    public ResponseEntity<Map<String, Object>> testEndpoint() {
+        if (authHeader == null || authHeader.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Authorization header is required");
+        }
+
+        noteService.processNoteWithAiModel(noteId, authHeader);
+
         Map<String, Object> response = new HashMap<>();
-        response.put("message", "Note controller is working!");
-        response.put("timestamp", System.currentTimeMillis());
+        response.put("message", "AI content processed and saved successfully");
+        response.put("noteId", noteId);
+        response.put("status", "completed");
+
         return ResponseEntity.ok(response);
     }
 }

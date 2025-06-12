@@ -24,8 +24,8 @@ public class RegisterRequest {
     private String email;
     @NotBlank(message = "Password can't be blank")
     @Pattern(
-            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)[a-zA-Z\\d]{8,}$",
-            message = "Password must contain at least 8 characters, one uppercase, one lowercase and one number"
+            regexp = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!])(?=\\S+$).{8,}$",
+            message = "Password must contain at least one digit, one lowercase, one uppercase, one special character (@#$%^&+=!) and should be 8 characters long"
     )
     private String password;
     @NotNull(message ="Please choose your gender")

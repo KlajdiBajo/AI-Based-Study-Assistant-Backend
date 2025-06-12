@@ -6,21 +6,18 @@ import com.aistudyassistant.backend.AI_Study_Assistant_Backend.dtos.QuizQuestion
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.dtos.SummaryDto;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.*;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.mappers.Mapper;
-import com.aistudyassistant.backend.AI_Study_Assistant_Backend.repository.NoteRepository;
-import com.aistudyassistant.backend.AI_Study_Assistant_Backend.repository.UserRepository;
+import com.aistudyassistant.backend.AI_Study_Assistant_Backend.repository.*;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.service.*;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.http.HttpHeaders;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.File;
 import java.io.IOException;
@@ -37,14 +34,17 @@ public class NoteServiceImpl implements NoteService {
 
     private final NoteRepository noteRepository;
     private final UserRepository userRepository;
+    private final SummaryRepository summaryRepository;
+    private final QuizRepository quizRepository;
+    private final QuizQuestionRepository quizQuestionRepository;
     private final Mapper<Note, NoteDto> noteMapper;
     private final SummaryService summaryService;
     private final QuizService quizService;
     private final QuizQuestionService quizQuestionService;
     private final RestTemplate restTemplate;
-    private final Mapper<Summary, SummaryDto> summaryMapper;
-    private final Mapper<Quiz, QuizDto> quizMapper;
-    private final Mapper<QuizQuestion, QuizQuestionDto> quizQuestionMapper;
+//    private final Mapper<Summary, SummaryDto> summaryMapper;
+//    private final Mapper<Quiz, QuizDto> quizMapper;
+//    private final Mapper<QuizQuestion, QuizQuestionDto> quizQuestionMapper;
     private final JwtService jwtService;
 
     private final String UPLOAD_DIR = System.getProperty("user.dir") + "/uploads/";
@@ -373,72 +373,188 @@ public class NoteServiceImpl implements NoteService {
 
     @Override
     public NoteDto saveNote(MultipartFile file, NoteDto dto) throws IOException {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File cannot be null or empty");
+        }
+
         // Save file
         String originalFilename = file.getOriginalFilename();
-        if (originalFilename == null || !originalFilename.contains(".")) {
-            throw new IllegalArgumentException("Invalid file name.");
+        if (originalFilename == null || originalFilename.trim().isEmpty()) {
+            throw new IllegalArgumentException("File must have a valid name");
+        }
+
+        if (!originalFilename.contains(".")) {
+            throw new IllegalArgumentException("File must have a valid extension");
         }
 
         String extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-        String uniqueName = UUID.randomUUID() + extension;
-
-        File dir = new File(UPLOAD_DIR);
-        if (!dir.exists()) {
-            boolean created = dir.mkdirs();
-            if (!created) {
-                throw new IOException("Failed to create upload directory");
-            }
+        List<String> allowedExtensions = Arrays.asList(".pdf", ".docx", ".txt", ".doc");
+        if (!allowedExtensions.contains(extension)) {
+            throw new IllegalArgumentException("File type not supported. Allowed types: PDF, DOCX, TXT, DOC");
         }
 
-        File dest = new File(dir, uniqueName);
-        file.transferTo(dest);
+        // Validate DTO
+        if (dto == null) {
+            throw new IllegalArgumentException("Note data cannot be null");
+        }
 
-        // Update DTO
-        dto.setFileName(originalFilename);
-        dto.setFileURL(dest.getAbsolutePath());
-        dto.setStatus("uploaded");
-        dto.setUploadedAt(LocalDateTime.now());
+        if (dto.getUserId() == null) {
+            throw new IllegalArgumentException("User ID is required");
+        }
 
-        Note note = noteMapper.mapFrom(dto);
-        Note saved = noteRepository.save(note);
-        return noteMapper.mapTo(saved);
+        // Check if user exists
+        if (!userRepository.existsById(dto.getUserId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
+
+        try {
+            String uniqueName = UUID.randomUUID() + extension;
+            File dir = new File(UPLOAD_DIR);
+
+            if (!dir.exists()) {
+                boolean created = dir.mkdirs();
+                if (!created) {
+                    throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                            "Failed to create upload directory");
+                }
+            }
+
+            File dest = new File(dir, uniqueName);
+            file.transferTo(dest);
+
+            // Update DTO
+            dto.setFileName(originalFilename);
+            dto.setFileURL(dest.getAbsolutePath());
+            dto.setStatus("uploaded");
+            dto.setUploadedAt(LocalDateTime.now());
+
+            Note note = noteMapper.mapFrom(dto);
+            Note saved = noteRepository.save(note);
+            return noteMapper.mapTo(saved);
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to save file: " + e.getMessage());
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Unexpected error occurred while saving file");
+        }
     }
 
     @Override
     public List<NoteDto> getNotesByUser(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (email == null || email.trim().isEmpty()) {
+            throw new IllegalArgumentException("Email cannot be null or empty");
+        }
 
-        return noteRepository.findByUser(user).stream()
-                .map(noteMapper::mapTo)
-                .collect(Collectors.toList());
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        try {
+            return noteRepository.findByUser(user).stream()
+                    .map(noteMapper::mapTo)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Error retrieving user notes");
+        }
     }
 
     @Override
     public Optional<NoteDto> getNoteById(Long id, String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (id == null || id <= 0) {
+            throw new IllegalArgumentException("Note ID must be a positive number");
+        }
 
-        return noteRepository.findById(id)
-                .filter(note -> note.getUser().getId().equals(user.getId()))
-                .map(noteMapper::mapTo);
+        if (email == null || email.trim().isEmpty()) {
+            throw new IllegalArgumentException("Email cannot be null or empty");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        try {
+            return noteRepository.findById(id)
+                    .filter(note -> note.getUser().getId().equals(user.getId()))
+                    .map(noteMapper::mapTo);
+        } catch (Exception e) {
+            logger.error("Error retrieving note {} for user {}: {}", id, email, e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Error retrieving note");
+        }
     }
 
     @Override
     public void deleteNoteById(Long id, String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (id == null || id <= 0) {
+            throw new IllegalArgumentException("Note ID must be a positive number");
+        }
 
-        noteRepository.findById(id)
-                .filter(note -> note.getUser().getId().equals(user.getId()))
-                .ifPresentOrElse(
-                        noteRepository::delete,
-                        () -> { throw new RuntimeException("Unauthorized or note not found"); }
-                );
+        if (email == null || email.trim().isEmpty()) {
+            throw new IllegalArgumentException("Email cannot be null or empty");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        try {
+            Note note = noteRepository.findById(id)
+                    .filter(n -> n.getUser().getId().equals(user.getId()))
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "Note not found or access denied"));
+
+            // Delete associated quiz and quiz questions if they exist
+            Optional<Quiz> quizOptional = quizRepository.findByNote(note);
+            if (quizOptional.isPresent()) {
+                Quiz quiz = quizOptional.get();
+
+                // Delete all quiz questions associated with this quiz
+                List<QuizQuestion> quizQuestions = quizQuestionRepository.findByQuiz(quiz);
+                if (!quizQuestions.isEmpty()) {
+                    quizQuestionRepository.deleteAll(quizQuestions);
+                }
+
+                // Delete the quiz
+                quizRepository.delete(quiz);
+            }
+
+            // Delete associated summary if it exists
+            Optional<Summary> summaryOptional = summaryRepository.findByNote(note);
+            if (summaryOptional.isPresent()) {
+                summaryRepository.delete(summaryOptional.get());
+            }
+
+            // Delete physical file if it exists
+            try {
+                File file = new File(note.getFileURL());
+                if (file.exists() && !file.delete()) {
+                    logger.warn("Failed to delete physical file: {}", note.getFileURL());
+                }
+            } catch (Exception fileDeleteError) {
+                logger.warn("Error deleting physical file: {}", fileDeleteError.getMessage());
+            }
+
+            // Finally, delete the note
+            noteRepository.delete(note);
+            logger.info("Successfully deleted note {} for user {}", id, email);
+
+        } catch (ResponseStatusException e) {
+            throw e; // Re-throw ResponseStatusException as-is
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Error deleting note");
+        }
     }
 
     @Override
     public void processNoteWithAiModel(Long noteId, String jwtToken) {
+        if (noteId == null || noteId <= 0) {
+            throw new IllegalArgumentException("Note ID must be a positive number");
+        }
+
+        if (jwtToken == null || jwtToken.trim().isEmpty()) {
+            throw new IllegalArgumentException("JWT token cannot be null or empty");
+        }
+
         logger.info("SPRING BOOT: Starting AI processing for note ID: {}", noteId);
 
         String flaskUrl = "http://localhost:5000/api/process";
@@ -447,7 +563,27 @@ public class NoteServiceImpl implements NoteService {
             jwtToken = jwtToken.substring(7);
         }
 
-        String username = jwtService.extractUsername(jwtToken);
+        String username;
+        try {
+            username = jwtService.extractUsername(jwtToken);
+            if (username == null || username.trim().isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                        "Invalid JWT token - unable to extract username");
+            }
+        } catch (Exception e) {
+            logger.error("Error extracting username from JWT: {}", e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                    "Invalid or expired JWT token");
+        }
+
+        // Verify note exists and user has access
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        Note note = noteRepository.findById(noteId)
+                .filter(n -> n.getUser().getId().equals(user.getId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Note not found or access denied"));
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -604,9 +740,16 @@ public class NoteServiceImpl implements NoteService {
 
             logger.info("🎉 SPRING BOOT: AI processing completed for note ID: {}", noteId);
 
+        } catch (RestClientException e) {
+            logger.error("SPRING BOOT: Network error calling Flask API: {}", e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "AI service is currently unavailable. Please try again later.");
+        } catch (ResponseStatusException e) {
+            throw e; // Re-throw ResponseStatusException as-is
         } catch (Exception e) {
-            logger.error("SPRING BOOT: Error calling Flask API: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to process note with AI: " + e.getMessage());
+            logger.error("SPRING BOOT: Unexpected error during AI processing: {}", e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Unexpected error occurred during AI processing");
         }
     }
 }
