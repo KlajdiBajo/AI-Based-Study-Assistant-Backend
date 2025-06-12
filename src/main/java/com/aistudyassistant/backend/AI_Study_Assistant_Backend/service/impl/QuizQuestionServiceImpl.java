@@ -41,6 +41,9 @@ public class QuizQuestionServiceImpl implements QuizQuestionService {
                 .filter(q -> q.getNote().getUser().getEmail().equals(username))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Quiz not found or does not belong to user"));
 
+        // Clear existing questions first
+        quizQuestionRepository.deleteByQuiz(quiz);
+
         List<QuizQuestion> entities = questions.stream()
                 .peek(this::validateQuizQuestion)
                 .map(dto -> {

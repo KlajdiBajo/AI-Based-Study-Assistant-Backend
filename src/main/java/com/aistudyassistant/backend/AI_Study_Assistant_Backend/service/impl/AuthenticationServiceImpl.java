@@ -242,25 +242,28 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     }
 
     @Override
-    public ResponseEntity<?> myProfile(ForgotPasswordRequest forgotPasswordRequest) {
-        String email = forgotPasswordRequest.getEmail().trim().toLowerCase();
-        try {
-            User user = userRepository.findByEmail(email).orElseThrow(
-                    () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with email " + email)
-            );
-            return new ResponseEntity<>(UserProfile.builder()
-                    .id(user.getId())
-                    .firstName(user.getName().getFirstName())
-                    .lastName(user.getName().getLastName())
-                    .email(user.getEmail())
-                    .phoneNumber(user.getPhoneNumber())
-                    .gender(user.getGender())
-                    .profilePicture(user.getProfilePicture())
-                    .isOfficiallyEnabled(user.getIsVerified())
-                    .build(), HttpStatus.OK);
-
-        } catch (ResponseStatusException ex) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "user does not exist with this email");
+    public ResponseEntity<?> myProfile(String authenticatedEmail) {
+        // Input validation
+        if (authenticatedEmail == null || authenticatedEmail.trim().isEmpty()) {
+            throw new IllegalArgumentException("Authenticated email cannot be empty");
         }
+
+        String email = authenticatedEmail.trim().toLowerCase();
+
+        // Let exceptions bubble up to GlobalExceptionHandler
+        User user = userRepository.findByEmail(email).orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
+        );
+
+        return new ResponseEntity<>(UserProfile.builder()
+                .id(user.getId())
+                .firstName(user.getName().getFirstName())
+                .lastName(user.getName().getLastName())
+                .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
+                .gender(user.getGender())
+                .profilePicture(user.getProfilePicture())
+                .isOfficiallyEnabled(user.getIsVerified())
+                .build(), HttpStatus.OK);
     }
 }

@@ -57,7 +57,7 @@ public class QuizAnswerServiceImpl implements QuizAnswerService {
 
         // Check for duplicate answer (if business logic requires preventing duplicates)
         boolean answerExists = quizAnswerRepository.findByAttempt(attempt).stream()
-                .anyMatch(answer -> answer.getQuestion().getQuizQuestionid().equals(question.getQuizQuestionid()));
+                .anyMatch(answer -> answer.getQuestion().getQuizQuestionId().equals(question.getQuizQuestionId()));
 
         if (answerExists) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,

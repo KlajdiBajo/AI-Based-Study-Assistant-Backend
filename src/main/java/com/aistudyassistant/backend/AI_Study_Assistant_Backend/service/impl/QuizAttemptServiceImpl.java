@@ -100,7 +100,7 @@ public class QuizAttemptServiceImpl implements QuizAttemptService {
 
         for (UserAnswerDto userAnswer : submission.getUserAnswers()) {
             QuizQuestion question = questions.stream()
-                    .filter(q -> q.getQuizQuestionid().equals(userAnswer.getQuestionId()))
+                    .filter(q -> q.getQuizQuestionId().equals(userAnswer.getQuestionId()))
                     .findFirst()
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Question not found or does not belong to this quiz: " + userAnswer.getQuestionId()));
 

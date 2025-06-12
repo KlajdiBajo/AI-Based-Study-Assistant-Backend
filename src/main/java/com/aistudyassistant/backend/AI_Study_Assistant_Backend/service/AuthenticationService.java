@@ -11,5 +11,5 @@ public interface AuthenticationService {
     ResponseEntity<?> resendOtp(ForgotPasswordRequest forgotPasswordRequest);
     ResponseEntity<?> verifyOtp(RegisterVerifyRequest registerVerifyRequest);
     ResponseEntity<?> resetPassword(ResetPasswordRequest resetPasswordRequest);
-    ResponseEntity<?> myProfile(ForgotPasswordRequest forgotPasswordRequest);
+    ResponseEntity<?> myProfile(String authenticatedEmail);
 }

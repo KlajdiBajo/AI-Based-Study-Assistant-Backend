@@ -27,7 +27,7 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
         // Create error response in same format as Global Exception Handler
         Map<String, Object> errorBody = new HashMap<>();
-        errorBody.put("timestamp", ZonedDateTime.now());
+        errorBody.put("timestamp", ZonedDateTime.now().toString());
         errorBody.put("status", 401);
         errorBody.put("error", "Unauthorized");
         errorBody.put("path", request.getRequestURI());

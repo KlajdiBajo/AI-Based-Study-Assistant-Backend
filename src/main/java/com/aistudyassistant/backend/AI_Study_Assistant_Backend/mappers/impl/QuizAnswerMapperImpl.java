@@ -25,7 +25,7 @@ public class QuizAnswerMapperImpl implements Mapper<QuizAnswer, QuizAnswerDto> {
 
         if (quizAnswer.getQuestion() != null) {
             // FIXED: Set questionId, not quizAnswerId (that was wrong)
-            quizAnswerDto.setQuestionId(quizAnswer.getQuestion().getQuizQuestionid());
+            quizAnswerDto.setQuestionId(quizAnswer.getQuestion().getQuizQuestionId());
             quizAnswerDto.setQuestionText(quizAnswer.getQuestion().getQuestionText());
 
             // Set correct answer text based on correct option

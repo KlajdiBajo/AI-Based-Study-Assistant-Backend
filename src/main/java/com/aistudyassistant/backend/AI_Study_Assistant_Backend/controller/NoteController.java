@@ -33,7 +33,7 @@ import java.util.Optional;
 @RequestMapping("/notes")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "Notes", description = "Note management APIs for AI Study Assistant")
+@Tag(name = "Notes", description = "Note management APIs")
 @SecurityRequirement(name = "bearerAuth")
 public class NoteController {
 

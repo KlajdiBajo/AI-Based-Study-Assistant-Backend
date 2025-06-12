@@ -50,10 +50,10 @@ public class SummaryServiceImpl implements SummaryService {
     public SummaryDto getByNoteId(Long noteId, String username) {
         Note note = noteRepository.findById(noteId)
                 .filter(n -> n.getUser().getEmail().equals(username))
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Note not found or does not belong to user"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Note not found or access denied"));
 
         Summary summary = summaryRepository.findByNote(note)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Summary not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No summary found for this note"));
 
         return summaryMapper.mapTo(summary);
     }

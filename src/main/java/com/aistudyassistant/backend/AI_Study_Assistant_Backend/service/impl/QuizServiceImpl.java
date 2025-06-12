@@ -12,6 +12,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 public class QuizServiceImpl implements QuizService {
@@ -26,8 +29,20 @@ public class QuizServiceImpl implements QuizService {
                 .filter(n -> n.getUser().getEmail().equals(username))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Note not found or does not belong to user"));
 
-        Quiz quiz = quizMapper.mapFrom(quizDto);
-        quiz.setNote(note);
+        Optional<Quiz> existingQuiz = quizRepository.findByNote(note);
+
+        Quiz quiz;
+        if (existingQuiz.isPresent()) {
+            quizRepository.delete(existingQuiz.get());
+            quiz = quizMapper.mapFrom(quizDto);
+            quiz.setNote(note);
+            quiz.setCreatedAt(LocalDateTime.now());
+        } else {
+            quiz = quizMapper.mapFrom(quizDto);
+            quiz.setNote(note);
+            quiz.setCreatedAt(LocalDateTime.now());
+        }
+
         Quiz saved = quizRepository.save(quiz);
         return quizMapper.mapTo(saved);
     }
