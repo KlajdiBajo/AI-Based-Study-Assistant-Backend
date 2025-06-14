@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -163,6 +164,59 @@ public class NoteController {
         Map<String, String> response = new HashMap<>();
         response.put("message", "Note deleted successfully");
         response.put("noteId", noteId.toString());
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/search")
+    @Operation(summary = "Search user's notes with pagination",
+            description = "Search notes by filename or title with pagination support. Results are sorted by upload date (newest first).")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Notes search completed successfully"),
+            @ApiResponse(responseCode = "400", description = """
+            Bad Request:
+            - Email cannot be null or empty
+            - Page number cannot be negative
+            - Page size must be between 1 and 100
+        """),
+            @ApiResponse(responseCode = "401", description = "Unauthorized: Invalid or missing JWT token"),
+            @ApiResponse(responseCode = "404", description = "Not Found: User not found"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error: Error searching notes")
+    })
+    public ResponseEntity<Map<String, Object>> searchNotes(
+            @Parameter(description = "Search term to filter notes by filename or title")
+            @RequestParam(value = "q", required = false) String searchTerm,
+
+            @Parameter(description = "Page number (0-based)")
+            @RequestParam(value = "page", defaultValue = "0") int page,
+
+            @Parameter(description = "Number of items per page (1-100)")
+            @RequestParam(value = "size", defaultValue = "10") int size,
+
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        if (userDetails == null || userDetails.getUsername() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User authentication required");
+        }
+
+        // Simplified: Only 3 parameters, fixed sorting
+        Page<NoteDto> notePage = noteService.searchUserNotes(
+                userDetails.getUsername(), searchTerm, page, size);
+
+        // Create response with pagination metadata
+        Map<String, Object> response = new HashMap<>();
+        response.put("notes", notePage.getContent());
+        response.put("currentPage", notePage.getNumber());
+        response.put("totalPages", notePage.getTotalPages());
+        response.put("totalElements", notePage.getTotalElements());
+        response.put("hasNext", notePage.hasNext());
+        response.put("hasPrevious", notePage.hasPrevious());
+        response.put("isFirst", notePage.isFirst());
+        response.put("isLast", notePage.isLast());
+        response.put("searchTerm", searchTerm);
+        response.put("pageSize", size);
+        response.put("sortedBy", "uploadedAt");  // Let frontend know the sort order
+        response.put("sortDirection", "DESC");
 
         return ResponseEntity.ok(response);
     }

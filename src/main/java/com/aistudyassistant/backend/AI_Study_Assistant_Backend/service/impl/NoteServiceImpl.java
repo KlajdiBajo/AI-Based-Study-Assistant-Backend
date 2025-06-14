@@ -11,6 +11,10 @@ import com.aistudyassistant.backend.AI_Study_Assistant_Backend.service.*;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
@@ -42,9 +46,6 @@ public class NoteServiceImpl implements NoteService {
     private final QuizService quizService;
     private final QuizQuestionService quizQuestionService;
     private final RestTemplate restTemplate;
-//    private final Mapper<Summary, SummaryDto> summaryMapper;
-//    private final Mapper<Quiz, QuizDto> quizMapper;
-//    private final Mapper<QuizQuestion, QuizQuestionDto> quizQuestionMapper;
     private final JwtService jwtService;
 
     private final String UPLOAD_DIR = System.getProperty("user.dir") + "/uploads/";
@@ -542,6 +543,54 @@ public class NoteServiceImpl implements NoteService {
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                     "Error deleting note");
+        }
+    }
+
+    @Override
+    public Page<NoteDto> searchUserNotes(String email, String searchTerm, int page, int size) {
+        // Input validation
+        if (email == null || email.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email cannot be null or empty");
+        }
+
+        if (page < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Page number cannot be negative");
+        }
+
+        if (size <= 0 || size > 100) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Page size must be between 1 and 100");
+        }
+
+        // Find user
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        try {
+            // FIXED SORTING: Always sort by uploadedAt DESC (newest first)
+            Sort sort = Sort.by(Sort.Direction.DESC, "uploadedAt");
+            Pageable pageable = PageRequest.of(page, size, sort);
+
+            Page<Note> notePage;
+
+            // Search logic
+            if (searchTerm == null || searchTerm.trim().isEmpty()) {
+                // No search term - return all user notes with pagination
+                notePage = noteRepository.findByUserOrderByUploadedAtDesc(user, pageable);
+            } else {
+                // Search by fileName and title
+                String cleanSearchTerm = searchTerm.trim();
+                notePage = noteRepository.findByUserAndFileNameOrTitleContainingIgnoreCase(user, cleanSearchTerm, pageable);
+            }
+
+            // Convert to DTOs
+            return notePage.map(noteMapper::mapTo);
+
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (Exception e) {
+            logger.error("Error searching notes for user {}: {}", email, e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Error searching user notes");
         }
     }
 
