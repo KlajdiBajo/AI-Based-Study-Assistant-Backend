@@ -7,7 +7,5 @@ import java.util.List;
 public interface QuizAnswerService {
 
     List<QuizAnswerDto> getAnswersByAttemptId(Long attemptId, String username);
-    QuizAnswerDto saveAnswer(QuizAnswerDto answerDto, String username);
-    void saveAllAnswers(Long attemptId, List<QuizAnswerDto> answers, String username);
 
 }

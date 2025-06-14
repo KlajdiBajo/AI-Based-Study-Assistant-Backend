@@ -5,33 +5,39 @@ import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.Note;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.User;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.mappers.Mapper;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class NoteMapperImpl implements Mapper<Note, NoteDto> {
 
     private final ModelMapper modelMapper;
     private final UserRepository userRepository;
 
-    public NoteMapperImpl(ModelMapper modelMapper, UserRepository userRepository) {
-        this.modelMapper = modelMapper;
-        this.userRepository = userRepository;
-    }
-
-
     @Override
     public NoteDto mapTo(Note note) {
-        return modelMapper.map(note, NoteDto.class);
+        NoteDto dto = modelMapper.map(note, NoteDto.class);
+
+        if (note.getUser() != null) {
+            dto.setUserId(note.getUser().getId());
+        }
+
+        return dto;
     }
 
     @Override
     public Note mapFrom(NoteDto noteDto) {
-        User user = userRepository.findById(noteDto.getUserId())
-                .orElseThrow(() -> new RuntimeException("User not found!"));
-
         Note note = modelMapper.map(noteDto, Note.class);
-        note.setUser(user);
+
+        // Set the User relationship
+        if (noteDto.getUserId() != null) {
+            User user = userRepository.findById(noteDto.getUserId())
+                    .orElseThrow(() -> new RuntimeException("User not found with ID: " + noteDto.getUserId()));
+            note.setUser(user);
+        }
+
         return note;
     }
 }

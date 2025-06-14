@@ -33,23 +33,24 @@ public class QuizAttemptServiceImpl implements QuizAttemptService {
     private final UserRepository userRepository;
     private final QuizQuestionRepository quizQuestionRepository;
     private final QuizAnswerRepository quizAnswerRepository;
+    private final QuizAttemptDeletionRepository deletionRepository; // NEW
     private final Mapper<QuizAttempt, QuizAttemptDto> attemptMapper;
 
     @Override
     @Transactional
     public QuizAttemptDto submitQuiz(QuizSubmissionDto submission, String username) {
-        // Input validation
+        // Input validation - using ResponseStatusException for consistency
         if (submission == null) {
-            throw new IllegalArgumentException("Quiz submission cannot be null");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quiz submission cannot be null");
         }
         if (username == null || username.trim().isEmpty()) {
-            throw new IllegalArgumentException("Username cannot be null or empty");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username cannot be null or empty");
         }
         if (submission.getQuizId() == null || submission.getQuizId() <= 0) {
-            throw new IllegalArgumentException("Quiz ID must be a positive number");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quiz ID must be a positive number");
         }
         if (submission.getUserAnswers() == null || submission.getUserAnswers().isEmpty()) {
-            throw new IllegalArgumentException("User answers cannot be null or empty");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User answers cannot be null or empty");
         }
 
         User user = userRepository.findByEmail(username)
@@ -70,19 +71,19 @@ public class QuizAttemptServiceImpl implements QuizAttemptService {
         Set<Long> submittedQuestionIds = new HashSet<>();
         for (UserAnswerDto userAnswer : submission.getUserAnswers()) {
             if (userAnswer == null) {
-                throw new IllegalArgumentException("User answer cannot be null");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User answer cannot be null");
             }
             if (userAnswer.getQuestionId() == null || userAnswer.getQuestionId() <= 0) {
-                throw new IllegalArgumentException("Question ID must be a positive number");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Question ID must be a positive number");
             }
         }
 
-        // Check if user has already submitted this quiz (if business rule requires uniqueness)
-        boolean hasExistingAttempt = quizAttemptRepository.findByUserAndQuiz(user, quiz).stream()
-                .anyMatch(attempt -> attempt.getAttemptedAt().isAfter(LocalDateTime.now().minusHours(24))); // Example: one attempt per 24 hours
+        // IMPROVED: Check for recent attempts OR recent deletions (24-hour rule)
+        boolean hasRecentActivity = hasRecentQuizActivity(user, quiz);
 
-        if (hasExistingAttempt) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "You have already attempted this quiz recently. Please wait before retrying.");
+        if (hasRecentActivity) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "You have recently deleted an attempt for this quiz. Please wait 24 hours before retrying.");
         }
 
         // Create the attempt
@@ -102,7 +103,8 @@ public class QuizAttemptServiceImpl implements QuizAttemptService {
             QuizQuestion question = questions.stream()
                     .filter(q -> q.getQuizQuestionId().equals(userAnswer.getQuestionId()))
                     .findFirst()
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Question not found or does not belong to this quiz: " + userAnswer.getQuestionId()));
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Question not found or does not belong to this quiz: " + userAnswer.getQuestionId()));
 
             boolean isCorrect = userAnswer.getSelectedOption() == question.getCorrectOption();
             if (isCorrect) {
@@ -129,7 +131,7 @@ public class QuizAttemptServiceImpl implements QuizAttemptService {
     @Override
     public List<QuizAttemptDto> getUserAttempts(String username) {
         if (username == null || username.trim().isEmpty()) {
-            throw new IllegalArgumentException("Username cannot be null or empty");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username cannot be null or empty");
         }
 
         User user = userRepository.findByEmail(username)
@@ -143,10 +145,10 @@ public class QuizAttemptServiceImpl implements QuizAttemptService {
     @Override
     public List<QuizAttemptDto> getAttemptsByQuizId(Long quizId, String username) {
         if (quizId == null || quizId <= 0) {
-            throw new IllegalArgumentException("Quiz ID must be a positive number");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quiz ID must be a positive number");
         }
         if (username == null || username.trim().isEmpty()) {
-            throw new IllegalArgumentException("Username cannot be null or empty");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username cannot be null or empty");
         }
 
         User user = userRepository.findByEmail(username)
@@ -162,28 +164,32 @@ public class QuizAttemptServiceImpl implements QuizAttemptService {
     }
 
     @Override
-    public Optional<QuizAttemptDto> getAttemptById(Long attemptId, String username) {
+    public QuizAttemptDto getAttemptById(Long attemptId, String username) {
         if (attemptId == null || attemptId <= 0) {
-            throw new IllegalArgumentException("Attempt ID must be a positive number");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Attempt ID must be a positive number");
         }
         if (username == null || username.trim().isEmpty()) {
-            throw new IllegalArgumentException("Username cannot be null or empty");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username cannot be null or empty");
         }
 
         User user = userRepository.findByEmail(username)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        return quizAttemptRepository.findByIdAndUser(attemptId, user)
-                .map(attemptMapper::mapTo);
+        QuizAttempt attempt = quizAttemptRepository.findByIdAndUser(attemptId, user)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Quiz attempt with ID " + attemptId + " not found or does not belong to this user"));
+
+        return attemptMapper.mapTo(attempt);
     }
 
     @Override
+    @Transactional
     public void deleteAttempt(Long attemptId, String username) {
         if (attemptId == null || attemptId <= 0) {
-            throw new IllegalArgumentException("Attempt ID must be a positive number");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Attempt ID must be a positive number");
         }
         if (username == null || username.trim().isEmpty()) {
-            throw new IllegalArgumentException("Username cannot be null or empty");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username cannot be null or empty");
         }
 
         User user = userRepository.findByEmail(username)
@@ -192,12 +198,39 @@ public class QuizAttemptServiceImpl implements QuizAttemptService {
         QuizAttempt attempt = quizAttemptRepository.findByIdAndUser(attemptId, user)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Quiz attempt not found or does not belong to user"));
 
-        // Business rule: Maybe prevent deletion of recent attempts
+        // Business rule: prevent deletion of recent attempts
         if (attempt.getAttemptedAt().isAfter(LocalDateTime.now().minusMinutes(5))) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot delete recent quiz attempts. Please wait 5 minutes after submission.");
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Cannot delete recent quiz attempts. Please wait 5 minutes after submission.");
         }
 
+        // IMPROVED: Record the deletion before deleting the attempt
+        QuizAttemptDeletion deletion = QuizAttemptDeletion.builder()
+                .user(user)
+                .quiz(attempt.getQuiz())
+                .originalAttemptDate(attempt.getAttemptedAt())
+                .deletedAt(LocalDateTime.now())
+                .originalScore(attempt.getScore())
+                .deletionReason("User requested deletion")
+                .build();
+
+        deletionRepository.save(deletion);
+
+        // Now delete the attempt
         quizAttemptRepository.delete(attempt);
-        logger.info("Quiz attempt deleted successfully. User: {}, Attempt ID: {}", username, attemptId);
+
+        logger.info("Quiz attempt deleted and tracked. User: {}, Attempt ID: {}, Original Score: {}",
+                username, attemptId, attempt.getScore());
+    }
+
+    // IMPROVED: Check both attempts and deletions for 24-hour rule
+    private boolean hasRecentQuizActivity(User user, Quiz quiz) {
+        LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
+
+        // Check for recent deletions
+        boolean hasRecentDeletion = deletionRepository.findByUserAndQuiz(user, quiz).stream()
+                .anyMatch(deletion -> deletion.getDeletedAt().isAfter(twentyFourHoursAgo));
+
+        return hasRecentDeletion;
     }
 }

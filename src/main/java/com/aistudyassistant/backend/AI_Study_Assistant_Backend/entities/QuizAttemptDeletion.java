@@ -6,27 +6,34 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
 @Entity
-@Table(name = "quiz_answers")
-public class QuizAnswer {
+@Table(name = "quiz_attempt_deletions")
+public class QuizAttemptDeletion {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private char selectedOption;
+    private LocalDateTime originalAttemptDate;
 
-    private boolean correct;
+    private LocalDateTime deletedAt;
+
+    private Integer originalScore;
+
+    private String deletionReason;
 
     @ManyToOne
-    @JoinColumn(name = "attempt_id")
-    private QuizAttempt attempt;
+    @JoinColumn(name = "user_id")
+    private User user;
 
     @ManyToOne
-    @JoinColumn(name = "question_id")
-    private QuizQuestion question;
+    @JoinColumn(name = "quiz_id")
+    private Quiz quiz;
+
 }

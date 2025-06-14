@@ -6,7 +6,6 @@ import com.aistudyassistant.backend.AI_Study_Assistant_Backend.mappers.Mapper;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Component;
-import org.springframework.web.bind.annotation.RequestMapping;
 
 @Component
 @RequiredArgsConstructor
@@ -18,14 +17,12 @@ public class QuizAnswerMapperImpl implements Mapper<QuizAnswer, QuizAnswerDto> {
     public QuizAnswerDto mapTo(QuizAnswer quizAnswer) {
         QuizAnswerDto quizAnswerDto = modelMapper.map(quizAnswer, QuizAnswerDto.class);
 
-        // FIXED: Null safety checks
         if (quizAnswer.getAttempt() != null) {
-            quizAnswerDto.setAttemptId(quizAnswer.getAttempt().getId());
+            quizAnswerDto.setAttemptId(quizAnswer.getAttempt().getId()); // FIXED: Use getId()
         }
 
         if (quizAnswer.getQuestion() != null) {
-            // FIXED: Set questionId, not quizAnswerId (that was wrong)
-            quizAnswerDto.setQuestionId(quizAnswer.getQuestion().getQuizQuestionId());
+            quizAnswerDto.setQuestionId(quizAnswer.getQuestion().getQuizQuestionId()); // FIXED: Use correct method
             quizAnswerDto.setQuestionText(quizAnswer.getQuestion().getQuestionText());
 
             // Set correct answer text based on correct option

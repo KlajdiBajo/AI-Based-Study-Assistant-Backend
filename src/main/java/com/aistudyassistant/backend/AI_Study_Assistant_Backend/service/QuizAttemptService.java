@@ -11,7 +11,7 @@ public interface QuizAttemptService {
     QuizAttemptDto submitQuiz(QuizSubmissionDto submission, String username);
     List<QuizAttemptDto> getUserAttempts(String username);
     List<QuizAttemptDto> getAttemptsByQuizId(Long quizId, String username);
-    Optional<QuizAttemptDto> getAttemptById(Long attemptId, String username);
+    QuizAttemptDto getAttemptById(Long attemptId, String username);
     void deleteAttempt(Long attemptId, String username);
 
 }

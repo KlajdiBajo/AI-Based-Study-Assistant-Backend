@@ -16,6 +16,7 @@ public class QuizQuestion {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "quiz_questionid")
     private Long quizQuestionId;
 
     @Column(columnDefinition = "TEXT")
