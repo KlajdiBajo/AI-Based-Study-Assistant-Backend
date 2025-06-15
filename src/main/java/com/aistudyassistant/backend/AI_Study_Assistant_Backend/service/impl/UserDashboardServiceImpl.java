@@ -194,7 +194,6 @@ public class UserDashboardServiceImpl implements UserDashboardService {
 
                     return NotePerformanceDto.builder()
                             .noteId(note.getId())
-                            .noteTitle(note.getFileName())
                             .fileName(note.getFileName())
                             .totalAttempts(noteAttempts.size())
                             .averageScore(avgScore)
@@ -238,13 +237,12 @@ public class UserDashboardServiceImpl implements UserDashboardService {
                             .count();
 
                     return WeakAreaDto.builder()
-                            .noteTitle(note.getFileName())
                             .fileName(note.getFileName())
                             .mistakeCount((int) mistakeCount)
                             .errorRate(errorRate)
                             .questionsAttempted(questionsAttempted)
                             .correctAnswers(correctAnswers)
-                            .recommendedAction("Review questions from: " + note.getTitle())
+                            .recommendedAction("Review questions from: " + note.getFileName())
                             .build();
                 })
                 .filter(area -> area.getErrorRate() > 20)
@@ -302,11 +300,10 @@ public class UserDashboardServiceImpl implements UserDashboardService {
         for (WeakAreaDto weakArea : weakAreas.stream().limit(2).collect(Collectors.toList())) {
             recommendations.add(StudyRecommendationDto.builder()
                     .type("WEAK_NOTE")
-                    .title("Practice " + weakArea.getNoteTitle())
+                    .title("Practice " + weakArea.getFileName())
                     .description("You have a " + String.format("%.1f", weakArea.getErrorRate()) + "% error rate in this note")
-                    .noteTitle(weakArea.getNoteTitle())
                     .actionText("Retake Quiz")
-                    .actionUrl("/quizzes?note=" + weakArea.getNoteTitle())
+                    .actionUrl("/quizzes?note=" + weakArea.getFileName())
                     .priority(5)
                     .build());
         }

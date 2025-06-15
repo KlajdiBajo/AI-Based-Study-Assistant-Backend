@@ -15,8 +15,6 @@ public class NotePerformanceDto {
 
     private Long noteId;
 
-    private String noteTitle;
-
     private String fileName;
 
     private int totalAttempts;

@@ -11,8 +11,6 @@ import lombok.NoArgsConstructor;
 @Builder
 public class WeakAreaDto {
 
-    private String noteTitle;
-
     private String fileName;
 
     private int mistakeCount;

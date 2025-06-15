@@ -17,8 +17,6 @@ public class StudyRecommendationDto {
 
     private String description;
 
-    private String noteTitle;
-
     private String actionText; // "Retake Quiz", "Review Notes", etc.
 
     private String actionUrl;
