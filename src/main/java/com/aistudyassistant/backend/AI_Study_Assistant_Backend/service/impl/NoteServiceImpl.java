@@ -17,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
@@ -256,20 +257,23 @@ public class NoteServiceImpl implements NoteService {
         return cleanDto;
     }
 
-    // ENHANCED Safe database save method with ultimate debugging and CORRECT OPTION FIX
+    // ENHANCED Safe database save method with proper transaction handling
+    @Transactional(timeout = 1800, rollbackFor = Exception.class)
     public void safeQuizQuestionSave(Long quizId, List<QuizQuestionDto> questions, String username) {
-        logger.info("SPRING BOOT: Starting ENHANCED safe database save for {} questions", questions.size());
+        logger.info("SPRING BOOT: Starting BATCH safe database save for {} questions", questions.size());
 
-        int savedCount = 0;
+        List<QuizQuestionDto> allValidQuestions = new ArrayList<>();
+
+        // STEP 1: Process and validate ALL questions first (don't save individually!)
         for (int i = 0; i < questions.size(); i++) {
             QuizQuestionDto question = questions.get(i);
             try {
-                logger.info("DEBUGGING: Processing question {} for save", i + 1);
+                logger.info("DEBUGGING: Processing question {} for validation", i + 1);
 
-                // STEP 1: Debug the original question
+                // STEP 2: Debug the original question
                 debugNullBytes(question, i + 1);
 
-                // STEP 2: Apply SUPER aggressive cleaning
+                // STEP 3: Apply SUPER aggressive cleaning
                 QuizQuestionDto superCleanQuestion = new QuizQuestionDto();
                 superCleanQuestion.setQuestionText(superAggressiveClean(question.getQuestionText()));
                 superCleanQuestion.setOptionA(superAggressiveClean(question.getOptionA()));
@@ -304,11 +308,11 @@ public class NoteServiceImpl implements NoteService {
                         superCleanQuestion.getCorrectOption(),
                         (int)superCleanQuestion.getCorrectOption());
 
-                // STEP 3: Debug the cleaned question
+                // STEP 4: Debug the cleaned question
                 logger.info("After SUPER cleaning:");
                 debugNullBytes(superCleanQuestion, i + 1);
 
-                // STEP 4: Final validation with detailed logging
+                // STEP 5: Final validation with detailed logging
                 boolean isValid = true;
                 String[] finalFields = {
                         superCleanQuestion.getQuestionText(),
@@ -342,34 +346,57 @@ public class NoteServiceImpl implements NoteService {
                 }
 
                 if (isValid) {
-                    logger.info("Question {} passed all validations, attempting database save", i + 1);
+                    allValidQuestions.add(superCleanQuestion);
+                    logger.info("Question {} passed all validations and added to batch", i + 1);
                     logger.info("Final question data: correctOption='{}', correctAnswer='{}'",
                             superCleanQuestion.getCorrectOption(),
                             superCleanQuestion.getCorrectAnswer());
-
-                    // STEP 5: Try to save
-                    List<QuizQuestionDto> singleQuestion = Arrays.asList(superCleanQuestion);
-                    quizQuestionService.saveAll(quizId, singleQuestion, username);
-                    savedCount++;
-                    logger.info("SPRING BOOT: Successfully saved question {}/{}", i + 1, questions.size());
-
                 } else {
-                    logger.error("Question {} failed validation, skipping save", i + 1);
+                    logger.error("Question {} failed validation, skipping", i + 1);
                 }
 
             } catch (Exception e) {
-                logger.error("SPRING BOOT: Failed to save question {}: {}", i + 1, e.getMessage());
+                logger.error("SPRING BOOT: Error processing question {}: {}", i + 1, e.getMessage());
                 logger.error("Exception type: {}", e.getClass().getSimpleName());
-
-                // Print the actual SQL parameters if possible
-                if (e.getMessage().contains("invalid byte sequence")) {
-                    logger.error("This is definitely a null byte issue in the database parameters");
-                    logger.error("Check if correctOption field contains null character");
-                }
+                // Continue with next question
             }
         }
 
-        logger.info("🎉 SPRING BOOT: Successfully saved {}/{} questions to database", savedCount, questions.size());
+        // STEP 6: NOW SAVE ALL VALID QUESTIONS IN ONE SINGLE BATCH OPERATION
+        if (!allValidQuestions.isEmpty()) {
+            try {
+                logger.info("🚀 SAVING {} QUESTIONS IN SINGLE BATCH OPERATION", allValidQuestions.size());
+                logger.info("🔑 KEY CHANGE: Calling saveAll() ONCE instead of {} times", allValidQuestions.size());
+
+                // CRITICAL: Save ALL questions at once, not one by one
+                // This will call deleteByQuiz() ONCE, then save all questions together
+                quizQuestionService.saveAll(quizId, allValidQuestions, username);
+
+                logger.info("🎉 SPRING BOOT: Successfully saved {}/{} questions in batch operation",
+                        allValidQuestions.size(), questions.size());
+
+                // Optional: Verify the save worked
+                logger.info("✅ VERIFICATION: {} questions should now exist in database for quiz {}",
+                        allValidQuestions.size(), quizId);
+
+            } catch (Exception e) {
+                logger.error("💥 BATCH SAVE FAILED: {}", e.getMessage(), e);
+                logger.error("Exception type: {}", e.getClass().getSimpleName());
+
+                // Log more details for debugging
+                if (e.getMessage() != null) {
+                    if (e.getMessage().contains("invalid byte sequence")) {
+                        logger.error("This is definitely a null byte issue in the database parameters");
+                    } else if (e.getMessage().contains("EntityManager")) {
+                        logger.error("This is a transaction management issue");
+                    }
+                }
+
+                throw new RuntimeException("Failed to save questions in batch: " + e.getMessage(), e);
+            }
+        } else {
+            logger.warn("⚠️ No valid questions to save after processing {} questions", questions.size());
+        }
     }
 
     @Override
@@ -595,6 +622,7 @@ public class NoteServiceImpl implements NoteService {
     }
 
     @Override
+    @Transactional(timeout = 1800, rollbackFor = Exception.class) // 30 minutes timeout
     public void processNoteWithAiModel(Long noteId, String jwtToken) {
         if (noteId == null || noteId <= 0) {
             throw new IllegalArgumentException("Note ID must be a positive number");
@@ -606,6 +634,7 @@ public class NoteServiceImpl implements NoteService {
 
         logger.info("SPRING BOOT: Starting AI processing for note ID: {}", noteId);
 
+        // Your existing code continues here...
         String flaskUrl = "http://localhost:5000/api/process";
 
         if (jwtToken.startsWith("Bearer ")) {
@@ -778,7 +807,7 @@ public class NoteServiceImpl implements NoteService {
                 logger.info("SPRING BOOT: Processed {} validated questions for database save", questions.size());
 
                 if (!questions.isEmpty()) {
-                    // Use our enhanced safe save method
+                    // Use our enhanced safe save method - but now within transaction context
                     safeQuizQuestionSave(savedQuiz.getQuizId(), questions, username);
                 } else {
                     logger.warn("SPRING BOOT: No questions were valid for saving");
