@@ -395,7 +395,7 @@ public class NoteServiceImpl implements NoteService {
                 throw new RuntimeException("Failed to save questions in batch: " + e.getMessage(), e);
             }
         } else {
-            logger.warn("⚠️ No valid questions to save after processing {} questions", questions.size());
+            logger.warn("No valid questions to save after processing {} questions", questions.size());
         }
     }
 
@@ -816,7 +816,7 @@ public class NoteServiceImpl implements NoteService {
                 logger.info("SPRING BOOT: No MCQs received from Flask API");
             }
 
-            logger.info("🎉 SPRING BOOT: AI processing completed for note ID: {}", noteId);
+            logger.info("SPRING BOOT: AI processing completed for note ID: {}", noteId);
 
         } catch (RestClientException e) {
             logger.error("SPRING BOOT: Network error calling Flask API: {}", e.getMessage(), e);
