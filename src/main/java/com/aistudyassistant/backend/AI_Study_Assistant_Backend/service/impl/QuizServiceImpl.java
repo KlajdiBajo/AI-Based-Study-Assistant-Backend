@@ -29,18 +29,26 @@ public class QuizServiceImpl implements QuizService {
                 .filter(n -> n.getUser().getEmail().equals(username))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Note not found or does not belong to user"));
 
-        Optional<Quiz> existingQuiz = quizRepository.findByNote(note);
+        // CHANGED: Only check for active (non-deleted) quizzes when saving
+        Optional<Quiz> existingQuiz = quizRepository.findByNoteAndDeletedFalse(note);
 
         Quiz quiz;
         if (existingQuiz.isPresent()) {
-            quizRepository.delete(existingQuiz.get());
+            // Instead of deleting, mark as deleted and create new quiz
+            Quiz oldQuiz = existingQuiz.get();
+            oldQuiz.setDeleted(true);
+            oldQuiz.setDeletedAt(LocalDateTime.now());
+            quizRepository.save(oldQuiz);
+
             quiz = quizMapper.mapFrom(quizDto);
             quiz.setNote(note);
             quiz.setCreatedAt(LocalDateTime.now());
+            quiz.setDeleted(false); // Ensure new quiz is active
         } else {
             quiz = quizMapper.mapFrom(quizDto);
             quiz.setNote(note);
             quiz.setCreatedAt(LocalDateTime.now());
+            quiz.setDeleted(false); // Ensure new quiz is active
         }
 
         Quiz saved = quizRepository.save(quiz);
@@ -53,7 +61,8 @@ public class QuizServiceImpl implements QuizService {
                 .filter(n -> n.getUser().getEmail().equals(username))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Note not found or does not belong to user"));
 
-        Quiz quiz = quizRepository.findByNote(note)
+        // CHANGED: Only get active (non-deleted) quizzes for normal operations
+        Quiz quiz = quizRepository.findByNoteAndDeletedFalse(note)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Quiz not found for this note!"));
 
         return quizMapper.mapTo(quiz);

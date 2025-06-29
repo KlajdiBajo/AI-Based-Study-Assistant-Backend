@@ -1,6 +1,7 @@
 package com.aistudyassistant.backend.AI_Study_Assistant_Backend.controller;
 
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.dtos.requests.*;
+import com.aistudyassistant.backend.AI_Study_Assistant_Backend.dtos.requests.RefreshTokenRequest;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.dtos.responses.GeneralAPIResponse;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.dtos.responses.RefreshTokenResponse;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.dtos.responses.RegisterResponse;
@@ -162,7 +163,7 @@ public class AuthenticationController {
         return authenticationService.resetPassword(resetPasswordRequest);
     }
 
-    @GetMapping("/getRefreshToken")
+    @PostMapping(value = "/getRefreshToken", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Refresh Token", description = "Generate a new access token from a refresh token.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "OK: Access token generated successfully",
@@ -175,9 +176,9 @@ public class AuthenticationController {
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = GeneralAPIResponse.class)))
     })
-    public ResponseEntity<?> refreshToken(@RequestParam(name = "refreshToken") String refreshToken) {
+    public ResponseEntity<?> refreshToken(@Valid @RequestBody RefreshTokenRequest refreshTokenRequest) {
         log.info("Refresh token request received");
-        return jwtService.generateAccessTokenFromRefreshToken(refreshToken);
+        return jwtService.generateAccessTokenFromRefreshToken(refreshTokenRequest.getRefreshToken());
     }
 
     @PostMapping("/hello")

@@ -4,6 +4,7 @@ import com.aistudyassistant.backend.AI_Study_Assistant_Backend.dtos.QuizAttemptD
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.dtos.QuizSubmissionDto;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public interface QuizAttemptService {
@@ -14,4 +15,5 @@ public interface QuizAttemptService {
     QuizAttemptDto getAttemptById(Long attemptId, String username);
     void deleteAttempt(Long attemptId, String username);
 
+    List<Map<String, Object>> getUserAttemptsWithDocumentNames(String username);
 }

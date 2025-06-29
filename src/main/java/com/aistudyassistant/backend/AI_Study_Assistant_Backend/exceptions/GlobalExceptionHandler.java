@@ -26,7 +26,7 @@ public class GlobalExceptionHandler {
         HttpStatus status = HttpStatus.resolve(statusCode.value());
 
         Map<String, Object> errorBody = new HashMap<>();
-        errorBody.put("timestamp", ZonedDateTime.now());
+        errorBody.put("timestamp", ZonedDateTime.now().toString()); // Convert to String
         errorBody.put("status", statusCode.value());
         errorBody.put("error", (status != null) ? status.getReasonPhrase() : "Unknown Error");
         errorBody.put("path", request.getRequestURI());
@@ -45,7 +45,7 @@ public class GlobalExceptionHandler {
         );
 
         Map<String, Object> errorBody = new HashMap<>();
-        errorBody.put("timestamp", ZonedDateTime.now());
+        errorBody.put("timestamp", ZonedDateTime.now().toString()); // Convert to String
         errorBody.put("status", status.value());
         errorBody.put("error", status.getReasonPhrase());
         errorBody.put("path", request.getRequestURI());
@@ -60,7 +60,7 @@ public class GlobalExceptionHandler {
         HttpStatus status = HttpStatus.BAD_REQUEST;
 
         Map<String, Object> errorBody = new HashMap<>();
-        errorBody.put("timestamp", ZonedDateTime.now());
+        errorBody.put("timestamp", ZonedDateTime.now().toString()); // Convert to String
         errorBody.put("status", status.value());
         errorBody.put("error", status.getReasonPhrase());
         errorBody.put("path", request.getRequestURI());
@@ -74,7 +74,7 @@ public class GlobalExceptionHandler {
         HttpStatus status = HttpStatus.BAD_REQUEST;
 
         Map<String, Object> errorBody = new HashMap<>();
-        errorBody.put("timestamp", ZonedDateTime.now());
+        errorBody.put("timestamp", ZonedDateTime.now().toString()); // Convert to String
         errorBody.put("status", status.value());
         errorBody.put("error", status.getReasonPhrase());
         errorBody.put("path", request.getRequestURI());
@@ -88,7 +88,7 @@ public class GlobalExceptionHandler {
         HttpStatus status = HttpStatus.CONFLICT;
 
         Map<String, Object> errorBody = new HashMap<>();
-        errorBody.put("timestamp", ZonedDateTime.now());
+        errorBody.put("timestamp", ZonedDateTime.now().toString()); // Convert to String
         errorBody.put("status", status.value());
         errorBody.put("error", status.getReasonPhrase());
         errorBody.put("path", request.getRequestURI());
@@ -102,7 +102,7 @@ public class GlobalExceptionHandler {
         HttpStatus status = HttpStatus.UNAUTHORIZED;
 
         Map<String, Object> errorBody = new HashMap<>();
-        errorBody.put("timestamp", ZonedDateTime.now());
+        errorBody.put("timestamp", ZonedDateTime.now().toString()); // Convert to String
         errorBody.put("status", status.value());
         errorBody.put("error", status.getReasonPhrase());
         errorBody.put("path", request.getRequestURI());
@@ -116,13 +116,12 @@ public class GlobalExceptionHandler {
         HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
 
         Map<String, Object> errorBody = new HashMap<>();
-        errorBody.put("timestamp", ZonedDateTime.now());
+        errorBody.put("timestamp", ZonedDateTime.now().toString()); // Convert to String
         errorBody.put("status", status.value());
         errorBody.put("error", status.getReasonPhrase());
         errorBody.put("path", request.getRequestURI());
         errorBody.put("message", "An unexpected error occurred");
 
-        // Log the actual exception for debugging (consider using proper logging)
         System.err.println("Unexpected error: " + ex.getMessage());
         ex.printStackTrace();
 

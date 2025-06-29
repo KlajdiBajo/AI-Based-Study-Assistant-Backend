@@ -13,11 +13,18 @@ import java.util.Optional;
 
 public interface NoteRepository extends JpaRepository<Note, Long> {
 
-    List<Note> findByUser(User user);
+    // For active operations (exclude deleted notes) - UI will use these
+    List<Note> findByUserAndDeletedFalse(User user);
+    Optional<Note> findByIdAndUserAndDeletedFalse(Long id, User user);
+    Page<Note> findByUserAndDeletedFalseOrderByUploadedAtDesc(User user, Pageable pageable);
 
+    // For internal operations (includes deleted notes) - keep for referential integrity
+    List<Note> findByUser(User user);
+    Optional<Note> findById(Long id);
     Optional<Note> findByIdAndUser(Long id, User user);
 
-    @Query("SELECT n FROM Note n WHERE n.user = :user AND " +
+    // Updated search query to exclude deleted notes
+    @Query("SELECT n FROM Note n WHERE n.user = :user AND n.deleted = false AND " +
             "(LOWER(n.fileName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
             "LOWER(n.title) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
     Page<Note> findByUserAndFileNameOrTitleContainingIgnoreCase(
@@ -25,5 +32,7 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
             @Param("searchTerm") String searchTerm,
             Pageable pageable);
 
+    // Keep the old method name but make it active-only
+    @Query("SELECT n FROM Note n WHERE n.user = :user AND n.deleted = false ORDER BY n.uploadedAt DESC")
     Page<Note> findByUserOrderByUploadedAtDesc(User user, Pageable pageable);
 }

@@ -33,6 +33,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        boolean shouldSkip = path.startsWith("/api/v1/auth/") ||
+                path.startsWith("/v3/api-docs") ||
+                path.startsWith("/swagger-ui") ||
+                path.equals("/");
+
+        return shouldSkip;
+    }
+
+    @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
         String authorizationHeader = request.getHeader("Authorization");
         String token;
@@ -48,19 +59,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             username = jwtHelper.extractUsername(token);
         }
         catch(IllegalStateException e) {
-            sendErrorResponse(response, request.getRequestURI(), "Invalid JWT token format");
+            sendErrorResponse(response, request.getRequestURI(), "Invalid JWT token format", "INVALID_TOKEN");
             return;
         }
         catch(ExpiredJwtException e) {
-            sendErrorResponse(response, request.getRequestURI(), "JWT token has expired");
+            // Send specific error code for expired tokens so frontend can trigger refresh
+            sendErrorResponse(response, request.getRequestURI(), "JWT token has expired", "TOKEN_EXPIRED");
             return;
         }
         catch(MalformedJwtException e) {
-            sendErrorResponse(response, request.getRequestURI(), "JWT token is malformed");
+            sendErrorResponse(response, request.getRequestURI(), "JWT token is malformed", "MALFORMED_TOKEN");
             return;
         }
         catch(Exception e) {
-            sendErrorResponse(response, request.getRequestURI(), "Invalid JWT token");
+            sendErrorResponse(response, request.getRequestURI(), "Invalid JWT token", "INVALID_TOKEN");
             return;
         }
 
@@ -68,34 +80,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         {
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
             if(jwtHelper.isTokenValid(token, userDetails)) {
-                UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken =
+                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                 usernamePasswordAuthenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
             }
             else {
                 log.error("Token is invalid");
-                sendErrorResponse(response, request.getRequestURI(), "JWT token is invalid or expired");
+                sendErrorResponse(response, request.getRequestURI(), "JWT token is invalid or expired", "INVALID_TOKEN");
                 return;
             }
-        }
-        else {
-            log.error("Username is null or Security Context Authentication is not null");
         }
         filterChain.doFilter(request, response);
     }
 
-    // Helper method to send JSON error response consistent with Global Exception Handler
-    private void sendErrorResponse(HttpServletResponse response, String path, String message) throws IOException {
+    private void sendErrorResponse(HttpServletResponse response, String path, String message, String errorCode) throws IOException {
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
 
         Map<String, Object> errorBody = new HashMap<>();
-        errorBody.put("timestamp", ZonedDateTime.now());
+        errorBody.put("timestamp", ZonedDateTime.now().toString());
         errorBody.put("status", 401);
         errorBody.put("error", "Unauthorized");
         errorBody.put("path", path);
         errorBody.put("message", message);
+        errorBody.put("errorCode", errorCode); // Add error code for frontend handling
 
         String jsonResponse = objectMapper.writeValueAsString(errorBody);
         response.getWriter().write(jsonResponse);

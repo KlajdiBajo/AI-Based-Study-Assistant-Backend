@@ -25,8 +25,17 @@ public class Summary {
 
     private LocalDateTime generatedAt;
 
+    // ADD THESE FIELDS FOR SOFT DELETE:
+    @Column(name = "deleted", nullable = false)
+    private Boolean deleted = false;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    @Column(name = "document_name")
+    private String documentName; // Store original filename
+
     @OneToOne
     @JoinColumn(name = "note_id")
     private Note note;
 }
-

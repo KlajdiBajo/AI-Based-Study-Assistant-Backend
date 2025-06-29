@@ -2,8 +2,10 @@ package com.aistudyassistant.backend.AI_Study_Assistant_Backend.repository;
 
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.QuizAnswer;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.QuizAttempt;
+import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.QuizQuestion;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -29,4 +31,11 @@ public interface QuizAnswerRepository extends JpaRepository<QuizAnswer, Long> {
 
     @Query("SELECT COUNT(qa) FROM QuizAnswer qa WHERE qa.attempt.user = :user AND qa.correct = false")
     long countIncorrectAnswersByUser(@Param("user") User user);
+
+    void deleteByQuestion(QuizQuestion question);
+
+    // ADD THIS METHOD:
+    @Modifying
+    @Query("DELETE FROM QuizAnswer qa WHERE qa.question = :question")
+    void deleteByQuizQuestion(@Param("question") QuizQuestion question);
 }

@@ -34,4 +34,29 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
 
     @Query("SELECT AVG(qa.score) FROM QuizAttempt qa WHERE qa.user = :user AND qa.attemptedAt >= :startDate")
     Double findAverageScoreByUserAndAttemptedAtAfter(@Param("user") User user, @Param("startDate") LocalDateTime startDate);
+
+    @Query("SELECT qa FROM QuizAttempt qa WHERE qa.user = :user AND (qa.archived IS NULL OR qa.archived = false)")
+    List<QuizAttempt> findActiveByUser(@Param("user") User user);
+
+    @Query("SELECT qa FROM QuizAttempt qa WHERE qa.user = :user AND qa.quiz.note.fileName = :fileName")
+    List<QuizAttempt> findByUserAndQuizNoteFileName(@Param("user") User user, @Param("fileName") String fileName);
+
+    // Method to find attempts by note ID
+    @Query("SELECT qa FROM QuizAttempt qa WHERE qa.quiz.note.id = :noteId")
+    List<QuizAttempt> findByQuizNoteId(@Param("noteId") Long noteId);
+
+    // Method to find attempts by filename (general)
+    @Query("SELECT qa FROM QuizAttempt qa WHERE qa.quiz.note.fileName = :fileName")
+    List<QuizAttempt> findByQuizNoteFileName(@Param("fileName") String fileName);
+
+    @Query("SELECT qa.id as quizAttemptId, qa.score as score, qa.attemptedAt as attemptedAt, " +
+            "COALESCE(q.quizId, 0) as quizId, " +
+            "COALESCE(n.fileName, qa.documentName) as documentName, " +
+            "qa.totalQuestions as totalQuestions " +  // ADD THIS LINE
+            "FROM QuizAttempt qa " +
+            "LEFT JOIN qa.quiz q " +
+            "LEFT JOIN q.note n " +
+            "WHERE qa.user.id = :userId " +
+            "ORDER BY qa.attemptedAt DESC")
+    List<Object[]> findUserAttemptsWithDocumentNames(@Param("userId") Long userId);
 }

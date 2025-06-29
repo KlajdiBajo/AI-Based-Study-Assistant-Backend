@@ -30,6 +30,12 @@ public class Note {
 
     private LocalDateTime uploadedAt;
 
+    @Column(name = "deleted", nullable = false)
+    private Boolean deleted = false;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;

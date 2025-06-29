@@ -25,7 +25,6 @@ public class JwtHelper {
         return claimsResolver.apply(claims);
     }
 
-    //this method is used to extract the username from the jwt token
     public String extractUsername(String jwt) {
         return extractClaims(jwt , Claims::getSubject);
     }
@@ -34,8 +33,8 @@ public class JwtHelper {
         Map<String , Object> claims = new HashMap<>();
         claims.put("role" , ((User) userDetails).getRole().name());
         return doGenerateAccessToken(claims, userDetails.getUsername());
-
     }
+
     public String generateRefreshToken(UserDetails userDetails) {
         return doGenerateRefreshToken(userDetails.getUsername());
     }
@@ -50,8 +49,7 @@ public class JwtHelper {
                 .compact();
     }
 
-    public String doGenerateAccessToken(Map<String, Object> claims, String subject)
-    {
+    public String doGenerateAccessToken(Map<String, Object> claims, String subject) {
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(subject)
@@ -62,23 +60,28 @@ public class JwtHelper {
                 .compact();
     }
 
-
     public Boolean isTokenValid(String jwt , UserDetails userDetails){
         final String username = extractUsername(jwt);
         return (username.equals(userDetails.getUsername())) && !isJwtExpired(jwt);
     }
 
-    public Boolean isRefreshTokenValid(String jwt , UserDetails userDetails){
-        final String username = extractUsername(jwt).substring(8);
-        return (username.equals(userDetails.getUsername())) && !isJwtExpired(jwt);
+    public Boolean isRefreshTokenValid(String jwt, UserDetails userDetails){
+        try {
+            final String subject = extractUsername(jwt);
+            final String expectedSubject = "#refresh" + userDetails.getUsername();
+
+            return subject.equals(expectedSubject) && !isJwtExpired(jwt);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
-    private boolean isJwtExpired(String jwt) {
+    public boolean isJwtExpired(String jwt) {
         return extractExpiration(jwt).before(new Date());
     }
 
     private Date extractExpiration(String jwt) {
-        return extractClaims(jwt , Claims ->Claims.getExpiration());
+        return extractClaims(jwt , Claims -> Claims.getExpiration());
     }
 
     private Claims extractAllClaims(String jwt) {
@@ -90,7 +93,6 @@ public class JwtHelper {
                 .getBody();
     }
 
-    // this method is used to get the secret key
     private Key getSignInKey() {
         byte [] keyBytes = Decoders.BASE64.decode(ApplicationConstants.SECRET_KEY);
         return Keys.hmacShaKeyFor(keyBytes);

@@ -16,10 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,8 +30,9 @@ public class QuizAttemptServiceImpl implements QuizAttemptService {
     private final UserRepository userRepository;
     private final QuizQuestionRepository quizQuestionRepository;
     private final QuizAnswerRepository quizAnswerRepository;
-    private final QuizAttemptDeletionRepository deletionRepository; // NEW
+    private final QuizAttemptDeletionRepository deletionRepository;
     private final Mapper<QuizAttempt, QuizAttemptDto> attemptMapper;
+
 
     @Override
     @Transactional
@@ -78,7 +76,7 @@ public class QuizAttemptServiceImpl implements QuizAttemptService {
             }
         }
 
-        // IMPROVED: Check for recent attempts OR recent deletions (24-hour rule)
+        // Check for recent attempts OR recent deletions (24-hour rule)
         boolean hasRecentActivity = hasRecentQuizActivity(user, quiz);
 
         if (hasRecentActivity) {
@@ -92,12 +90,15 @@ public class QuizAttemptServiceImpl implements QuizAttemptService {
                 .quiz(quiz)
                 .attemptedAt(LocalDateTime.now())
                 .score(0) // Will be calculated below
+                .totalQuestions(questions.size())
+                .archived(false) // ADD THIS LINE - new attempts are always active
                 .build();
 
         QuizAttempt savedAttempt = quizAttemptRepository.save(attempt);
 
         // Process answers and calculate score
         int correctAnswers = 0;
+        int totalQuestions = questions.size();
 
         for (UserAnswerDto userAnswer : submission.getUserAnswers()) {
             QuizQuestion question = questions.stream()
@@ -106,7 +107,11 @@ public class QuizAttemptServiceImpl implements QuizAttemptService {
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                             "Question not found or does not belong to this quiz: " + userAnswer.getQuestionId()));
 
-            boolean isCorrect = userAnswer.getSelectedOption() == question.getCorrectOption();
+            // Compare user answer with correct answer (case-insensitive)
+            char userSelectedOption = userAnswer.getSelectedOption();
+            char correctOption = question.getCorrectOption();
+            boolean isCorrect = Character.toUpperCase(userSelectedOption) == Character.toUpperCase(correctOption);
+
             if (isCorrect) {
                 correctAnswers++;
             }
@@ -114,7 +119,7 @@ public class QuizAttemptServiceImpl implements QuizAttemptService {
             QuizAnswer answer = QuizAnswer.builder()
                     .attempt(savedAttempt)
                     .question(question)
-                    .selectedOption(userAnswer.getSelectedOption())
+                    .selectedOption(userSelectedOption)
                     .correct(isCorrect)
                     .build();
 
@@ -125,7 +130,12 @@ public class QuizAttemptServiceImpl implements QuizAttemptService {
         savedAttempt.setScore(correctAnswers);
         QuizAttempt finalAttempt = quizAttemptRepository.save(savedAttempt);
 
-        return attemptMapper.mapTo(finalAttempt);
+        // Create the DTO with proper total questions and percentage
+        QuizAttemptDto result = attemptMapper.mapTo(finalAttempt);
+        result.setTotalQuestions(totalQuestions);
+        result.setPercentage(totalQuestions > 0 ? (double) correctAnswers / totalQuestions * 100 : 0);
+
+        return result;
     }
 
     @Override
@@ -158,7 +168,16 @@ public class QuizAttemptServiceImpl implements QuizAttemptService {
                 .filter(q -> q.getNote().getUser().getEmail().equals(username))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Quiz not found or does not belong to user"));
 
-        return quizAttemptRepository.findByUserAndQuiz(user, quiz).stream()
+        // Get attempts for current quiz
+        List<QuizAttempt> attempts = quizAttemptRepository.findByUserAndQuiz(user, quiz);
+
+        // If no attempts found, try to find by filename (for re-uploaded files)
+        if (attempts.isEmpty()) {
+            String filename = quiz.getNote().getFileName();
+            attempts = quizAttemptRepository.findByUserAndQuizNoteFileName(user, filename);
+        }
+
+        return attempts.stream()
                 .map(attemptMapper::mapTo)
                 .collect(Collectors.toList());
     }
@@ -221,6 +240,25 @@ public class QuizAttemptServiceImpl implements QuizAttemptService {
 
         logger.info("Quiz attempt deleted and tracked. User: {}, Attempt ID: {}, Original Score: {}",
                 username, attemptId, attempt.getScore());
+    }
+
+    @Override
+    public List<Map<String, Object>> getUserAttemptsWithDocumentNames(String username) {
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        Long userId = user.getId();
+
+        List<Object[]> results = quizAttemptRepository.findUserAttemptsWithDocumentNames(userId);
+        return results.stream().map(row -> {
+            Map<String, Object> attempt = new HashMap<>();
+            attempt.put("quizAttemptId", row[0]);
+            attempt.put("score", row[1]);
+            attempt.put("attemptedAt", row[2]);
+            attempt.put("quizId", row[3]);
+            attempt.put("documentName", row[4]);
+            attempt.put("totalQuestions", row[5]); // ADD THIS LINE
+            return attempt;
+        }).collect(Collectors.toList());
     }
 
     // IMPROVED: Check both attempts and deletions for 24-hour rule

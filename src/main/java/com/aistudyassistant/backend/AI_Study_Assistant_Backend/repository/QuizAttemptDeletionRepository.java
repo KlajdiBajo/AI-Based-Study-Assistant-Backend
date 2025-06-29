@@ -14,4 +14,6 @@ public interface QuizAttemptDeletionRepository extends JpaRepository<QuizAttempt
     List<QuizAttemptDeletion> findByUserAndQuiz(User user, Quiz quiz);
 
     List<QuizAttemptDeletion> findByUser(User user);
+
+    List<QuizAttemptDeletion> findByQuiz(Quiz quiz);
 }

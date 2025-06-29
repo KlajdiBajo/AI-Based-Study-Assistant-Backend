@@ -25,4 +25,8 @@ public class NoteDto {
     private LocalDateTime uploadedAt;
 
     private Long userId;
+
+    private Boolean deleted;
+
+    private LocalDateTime deletedAt;
 }

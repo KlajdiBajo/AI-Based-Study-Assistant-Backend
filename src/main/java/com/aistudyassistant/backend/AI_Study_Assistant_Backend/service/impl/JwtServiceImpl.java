@@ -41,21 +41,32 @@ public class JwtServiceImpl implements JwtService {
 
     @Override
     public ResponseEntity<?> generateAccessTokenFromRefreshToken(String refreshToken) {
-        if(refreshToken != null)
-        {
-            try
-            {
+        System.out.println("🔄 Refresh token request received");
+        System.out.println("🔍 Refresh token (first 20 chars): " + refreshToken.substring(0, 20) + "...");
+
+        if(refreshToken != null) {
+            try {
                 String username = jwtHelper.extractUsername(refreshToken);
-                if(username.startsWith("#refresh"))
-                {
+                System.out.println("📧 Extracted full subject: " + username);
+
+                if(username.startsWith("#refresh")) {
                     String finalUserName = username.substring(8);
+                    System.out.println("📧 Final username after substring: " + finalUserName);
+
                     UserDetails userDetails = userDetailsService.loadUserByUsername(finalUserName);
+                    System.out.println("👤 UserDetails loaded successfully for: " + finalUserName);
+
                     User user = userRepository.findByEmail(finalUserName).orElseThrow(
                             () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with email " + finalUserName)
                     );
-                    if(jwtHelper.isRefreshTokenValid(refreshToken, userDetails))
-                    {
+                    System.out.println("🏠 User found in database: " + user.getEmail());
+
+                    boolean isRefreshValid = jwtHelper.isRefreshTokenValid(refreshToken, userDetails);
+                    System.out.println("✅ Is refresh token valid: " + isRefreshValid);
+
+                    if(isRefreshValid) {
                         String accessToken = jwtHelper.generateAccessToken(user);
+                        System.out.println("🎫 New access token generated successfully");
                         return new ResponseEntity<>(RefreshTokenResponse.builder()
                                 .accessToken(accessToken)
                                 .firstName(user.getName().getFirstName())
@@ -63,36 +74,28 @@ public class JwtServiceImpl implements JwtService {
                                 .email(user.getEmail())
                                 .role(user.getRole())
                                 .build() , HttpStatus.OK);
-                    }
-                    else
-                    {
+                    } else {
+                        System.out.println("❌ Refresh token validation failed");
                         return new ResponseEntity<>(GeneralAPIResponse.builder().message("Refresh token is expired").build() , HttpStatus.BAD_REQUEST);
                     }
+                } else {
+                    System.out.println("❌ Token doesn't start with #refresh");
+                    return new ResponseEntity<>(GeneralAPIResponse.builder().message("Invalid refresh token").build() , HttpStatus.BAD_REQUEST);
                 }
-                else
-                {
+            } catch(Exception e) {
+                System.out.println("💥 Exception occurred: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+                e.printStackTrace();
+
+                if(e instanceof ExpiredJwtException) {
+                    return new ResponseEntity<>(GeneralAPIResponse.builder().message("Refresh token is expired").build() , HttpStatus.BAD_REQUEST);
+                } else {
                     return new ResponseEntity<>(GeneralAPIResponse.builder().message("Invalid refresh token").build() , HttpStatus.BAD_REQUEST);
                 }
             }
-            catch(IllegalArgumentException | MalformedJwtException e)
-            {
-                return new ResponseEntity<>(GeneralAPIResponse.builder().message("Invalid refresh token").build() , HttpStatus.BAD_REQUEST);
-            }
-            catch(ResponseStatusException e)
-            {
-                return new ResponseEntity<>(GeneralAPIResponse.builder().message("User not found").build() , HttpStatus.NOT_FOUND);
-            }
-            catch(ExpiredJwtException e)
-            {
-                return new ResponseEntity<>(GeneralAPIResponse.builder().message("Refresh token is expired").build() , HttpStatus.BAD_REQUEST);
-            }
-
-        }
-        else
-        {
+        } else {
+            System.out.println("❌ Refresh token is null");
             return new ResponseEntity<>(GeneralAPIResponse.builder().message("Refresh token is null").build() , HttpStatus.BAD_REQUEST);
         }
-
     }
 
     @Override

@@ -38,7 +38,10 @@ public class UserDashboardServiceImpl implements UserDashboardService {
         // Calculate basic statistics
         int totalQuizzes = allAttempts.size();
         double averageScore = allAttempts.stream()
-                .mapToInt(QuizAttempt::getScore)
+                .mapToDouble(attempt -> {
+                    int totalQuestions = attempt.getAnswers() != null ? attempt.getAnswers().size() : 0;
+                    return totalQuestions > 0 ? (double) attempt.getScore() / totalQuestions * 100 : 0.0;
+                })
                 .average()
                 .orElse(0.0);
 
@@ -49,7 +52,10 @@ public class UserDashboardServiceImpl implements UserDashboardService {
 
         int quizzesThisWeek = recentAttempts.size();
         double averageScoreThisWeek = recentAttempts.stream()
-                .mapToInt(QuizAttempt::getScore)
+                .mapToDouble(attempt -> {
+                    int totalQuestions = attempt.getAnswers() != null ? attempt.getAnswers().size() : 0;
+                    return totalQuestions > 0 ? (double) attempt.getScore() / totalQuestions * 100 : 0.0;
+                })
                 .average()
                 .orElse(0.0);
 

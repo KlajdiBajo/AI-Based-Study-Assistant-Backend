@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/quiz-attempts")
@@ -176,5 +177,25 @@ public class QuizAttemptController {
 
         quizAttemptService.deleteAttempt(attemptId, userDetails.getUsername());
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/user/with-documents")
+    @Operation(summary = "Get user's quiz attempts with document names",
+            description = "Retrieve all quiz attempts made by the authenticated user with document names")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Quiz attempts with document names retrieved successfully"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized: Invalid or missing JWT token"),
+            @ApiResponse(responseCode = "404", description = "Not Found: User not found"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error: Error retrieving quiz attempts")
+    })
+    public ResponseEntity<List<Map<String, Object>>> getUserAttemptsWithDocs(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        if (userDetails == null || userDetails.getUsername() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User authentication required");
+        }
+
+        List<Map<String, Object>> attempts = quizAttemptService.getUserAttemptsWithDocumentNames(userDetails.getUsername());
+        return ResponseEntity.ok(attempts);
     }
 }

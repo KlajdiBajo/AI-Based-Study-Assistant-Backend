@@ -17,7 +17,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
@@ -42,6 +41,9 @@ public class NoteServiceImpl implements NoteService {
     private final SummaryRepository summaryRepository;
     private final QuizRepository quizRepository;
     private final QuizQuestionRepository quizQuestionRepository;
+    private final QuizAnswerRepository quizAnswerRepository;
+    private final QuizAttemptRepository quizAttemptRepository;
+    private final QuizAttemptDeletionRepository quizAttemptDeletionRepository;
     private final Mapper<Note, NoteDto> noteMapper;
     private final SummaryService summaryService;
     private final QuizService quizService;
@@ -450,19 +452,33 @@ public class NoteServiceImpl implements NoteService {
             File dest = new File(dir, uniqueName);
             file.transferTo(dest);
 
-            // Update DTO
+            // Update DTO with file info
             dto.setFileName(originalFilename);
             dto.setFileURL(dest.getAbsolutePath());
             dto.setStatus("uploaded");
             dto.setUploadedAt(LocalDateTime.now());
 
+            // CRITICAL FIX: Explicitly set soft delete fields in DTO
+            dto.setDeleted(false);
+            dto.setDeletedAt(null);
+
             Note note = noteMapper.mapFrom(dto);
+
+            // ADDITIONAL SAFETY: Ensure entity fields are set correctly
+            if (note.getDeleted() == null) {
+                note.setDeleted(false);
+            }
+            if (note.getDeleted() && note.getDeletedAt() == null) {
+                note.setDeletedAt(LocalDateTime.now());
+            }
+
             Note saved = noteRepository.save(note);
             return noteMapper.mapTo(saved);
         } catch (IOException e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                     "Failed to save file: " + e.getMessage());
         } catch (Exception e) {
+            logger.error("Error saving note: {}", e.getMessage(), e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                     "Unexpected error occurred while saving file");
         }
@@ -478,7 +494,8 @@ public class NoteServiceImpl implements NoteService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         try {
-            return noteRepository.findByUser(user).stream()
+            // CHANGED: Only return active (non-deleted) notes
+            return noteRepository.findByUserAndDeletedFalse(user).stream()
                     .map(noteMapper::mapTo)
                     .collect(Collectors.toList());
         } catch (Exception e) {
@@ -501,8 +518,8 @@ public class NoteServiceImpl implements NoteService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         try {
-            return noteRepository.findById(id)
-                    .filter(note -> note.getUser().getId().equals(user.getId()))
+            // CHANGED: Only return active (non-deleted) notes for normal operations
+            return noteRepository.findByIdAndUserAndDeletedFalse(id, user)
                     .map(noteMapper::mapTo);
         } catch (Exception e) {
             logger.error("Error retrieving note {} for user {}: {}", id, email, e.getMessage(), e);
@@ -511,12 +528,12 @@ public class NoteServiceImpl implements NoteService {
         }
     }
 
+    @Transactional
     @Override
     public void deleteNoteById(Long id, String email) {
         if (id == null || id <= 0) {
             throw new IllegalArgumentException("Note ID must be a positive number");
         }
-
         if (email == null || email.trim().isEmpty()) {
             throw new IllegalArgumentException("Email cannot be null or empty");
         }
@@ -530,28 +547,46 @@ public class NoteServiceImpl implements NoteService {
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                             "Note not found or access denied"));
 
-            // Delete associated quiz and quiz questions if they exist
+            // Handle quiz soft deletion
             Optional<Quiz> quizOptional = quizRepository.findByNote(note);
             if (quizOptional.isPresent()) {
                 Quiz quiz = quizOptional.get();
 
-                // Delete all quiz questions associated with this quiz
-                List<QuizQuestion> quizQuestions = quizQuestionRepository.findByQuiz(quiz);
-                if (!quizQuestions.isEmpty()) {
-                    quizQuestionRepository.deleteAll(quizQuestions);
+                // Preserve document name in quiz attempts and mark as archived
+                List<QuizAttempt> quizAttempts = quizAttemptRepository.findByQuiz(quiz);
+                for (QuizAttempt attempt : quizAttempts) {
+                    attempt.setDocumentName(note.getFileName());
+                    attempt.setArchived(true);
+                    quizAttemptRepository.save(attempt);
                 }
+                logger.info("Archived {} quiz attempts for document: {}",
+                        quizAttempts.size(), note.getFileName());
 
-                // Delete the quiz
-                quizRepository.delete(quiz);
+                // Mark quiz as deleted (soft delete)
+                quiz.setDeleted(true);
+                quiz.setDeletedAt(LocalDateTime.now());
+                quizRepository.save(quiz);
+                logger.info("Soft deleted quiz for note: {}", note.getFileName());
+
+                // Clean up quiz attempt deletions
+                List<QuizAttemptDeletion> deletions = quizAttemptDeletionRepository.findByQuiz(quiz);
+                if (!deletions.isEmpty()) {
+                    quizAttemptDeletionRepository.deleteAll(deletions);
+                }
             }
 
-            // Delete associated summary if it exists
+            // Soft delete summary
             Optional<Summary> summaryOptional = summaryRepository.findByNote(note);
             if (summaryOptional.isPresent()) {
-                summaryRepository.delete(summaryOptional.get());
+                Summary summary = summaryOptional.get();
+                summary.setDeleted(true);
+                summary.setDeletedAt(LocalDateTime.now());
+                summary.setDocumentName(note.getFileName());
+                summaryRepository.save(summary);
+                logger.info("Soft deleted summary for document: {}", note.getFileName());
             }
 
-            // Delete physical file if it exists
+            // Delete physical file (keep this)
             try {
                 File file = new File(note.getFileURL());
                 if (file.exists() && !file.delete()) {
@@ -561,15 +596,17 @@ public class NoteServiceImpl implements NoteService {
                 logger.warn("Error deleting physical file: {}", fileDeleteError.getMessage());
             }
 
-            // Finally, delete the note
-            noteRepository.delete(note);
-            logger.info("Successfully deleted note {} for user {}", id, email);
+            // CHANGED: Soft delete the note instead of hard delete
+            note.setDeleted(true);
+            note.setDeletedAt(LocalDateTime.now());
+            noteRepository.save(note);
+            logger.info("Soft deleted note {} for user {}", id, email);
 
         } catch (ResponseStatusException e) {
-            throw e; // Re-throw ResponseStatusException as-is
+            throw e;
         } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Error deleting note");
+            logger.error("Error deleting note {}: {}", id, e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error deleting note");
         }
     }
 
@@ -599,12 +636,12 @@ public class NoteServiceImpl implements NoteService {
 
             Page<Note> notePage;
 
-            // Search logic
+            // Search logic - both methods now exclude deleted notes automatically
             if (searchTerm == null || searchTerm.trim().isEmpty()) {
-                // No search term - return all user notes with pagination
-                notePage = noteRepository.findByUserOrderByUploadedAtDesc(user, pageable);
+                // No search term - return all ACTIVE user notes with pagination
+                notePage = noteRepository.findByUserAndDeletedFalseOrderByUploadedAtDesc(user, pageable);
             } else {
-                // Search by fileName and title
+                // Search by fileName and title (only active notes)
                 String cleanSearchTerm = searchTerm.trim();
                 notePage = noteRepository.findByUserAndFileNameOrTitleContainingIgnoreCase(user, cleanSearchTerm, pageable);
             }

@@ -29,8 +29,18 @@ public class QuizAttempt {
     private User user;
 
     @ManyToOne
-    @JoinColumn(name = "quiz_id")
+    @JoinColumn(name = "quiz_id", nullable = true)
     private Quiz quiz;
+
+    @Column(name = "document_name")
+    private String documentName;
+
+    // ADD THIS FIELD:
+    @Column(name = "total_questions")
+    private Integer totalQuestions;
+
+    @Column(name = "archived", nullable = false)
+    private Boolean archived = false;
 
     @OneToMany(mappedBy = "attempt", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<QuizAnswer> answers;
