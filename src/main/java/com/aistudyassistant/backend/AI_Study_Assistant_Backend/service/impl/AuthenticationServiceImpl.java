@@ -264,6 +264,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 .gender(user.getGender())
                 .profilePicture(user.getProfilePicture())
                 .isOfficiallyEnabled(user.getIsVerified())
+                .createdAt(user.getCreatedAt())
                 .build(), HttpStatus.OK);
     }
 }
