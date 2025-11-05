@@ -11,11 +11,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RegisterVerifyResponse {
-    private String accessToken ;
-    private String refreshToken ;
-    private String firstName ;
-    private String lastName ;
-    private String email ;
+    private String firstName;
+    private String lastName;
+    private String email;
     private Role role;
-    private boolean isVerified;
+    private Boolean isVerified;
 }

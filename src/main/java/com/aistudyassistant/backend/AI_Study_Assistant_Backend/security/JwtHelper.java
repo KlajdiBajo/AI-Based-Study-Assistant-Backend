@@ -7,6 +7,8 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
@@ -96,5 +98,25 @@ public class JwtHelper {
     private Key getSignInKey() {
         byte [] keyBytes = Decoders.BASE64.decode(ApplicationConstants.SECRET_KEY);
         return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    public String getJwtFromCookies(HttpServletRequest request, String cookieName) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if(cookieName.equals(cookie.getName())){
+                    return cookie.getValue();
+                }
+            }
+        }
+        return null;
+    }
+
+    public String getAccessTokenFromCookies(HttpServletRequest request) {
+        return getJwtFromCookies(request, "accessToken");
+    }
+
+    public String getRefreshTokenFromCookies(HttpServletRequest request) {
+        return getJwtFromCookies(request, "refreshToken");
     }
 }

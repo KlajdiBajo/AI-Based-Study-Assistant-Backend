@@ -45,16 +45,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
-        String authorizationHeader = request.getHeader("Authorization");
-        String token;
-        String username = null;
+        String token = jwtHelper.getAccessTokenFromCookies(request);
 
-        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
+        if (token == null) {
+            String authorizationHeader = request.getHeader("Authorization");
+            if(authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+                token = authorizationHeader.substring(7);
+                log.debug("Token extracted from Authorization header (fallback mode)");
+            } else {
+                log.debug("Token extracted from cookie");
+            }
+        }
+
+        if (token == null) {
+            log.warn("No token found for protected endpoint: {}", request.getRequestURI());
+            sendErrorResponse(response, request.getRequestURI(),
+                    "Authentication required - no token provided", "NO_TOKEN");
             return;
         }
 
-        token = authorizationHeader.substring(7);
+        String username = null;
         try {
             username = jwtHelper.extractUsername(token);
         }
@@ -63,7 +73,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
         catch(ExpiredJwtException e) {
-            // Send specific error code for expired tokens so frontend can trigger refresh
             sendErrorResponse(response, request.getRequestURI(), "JWT token has expired", "TOKEN_EXPIRED");
             return;
         }

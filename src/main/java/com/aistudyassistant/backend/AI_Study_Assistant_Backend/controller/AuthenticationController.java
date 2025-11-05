@@ -14,6 +14,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -80,9 +82,11 @@ public class AuthenticationController {
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = GeneralAPIResponse.class)))
     })
-    public ResponseEntity<?> verifyRegistration(@Valid @RequestBody RegisterVerifyRequest registerVerifyRequest) {
+    public ResponseEntity<?> verifyRegistration(@Valid @RequestBody RegisterVerifyRequest registerVerifyRequest,
+                                                HttpServletResponse response,
+                                                HttpServletRequest request) {
         log.info("Registration verification request received for email {}", registerVerifyRequest.getEmail());
-        return authenticationService.verifyUserRegistration(registerVerifyRequest);
+        return authenticationService.verifyUserRegistration(registerVerifyRequest, response, request);
     }
 
     @PostMapping(value = "/login", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -98,9 +102,41 @@ public class AuthenticationController {
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = GeneralAPIResponse.class)))
     })
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest loginRequest,
+                                   HttpServletResponse response,
+                                   HttpServletRequest request) {
         log.info("Login request received for email {}", loginRequest.getEmail());
-        return authenticationService.loginUser(loginRequest);
+        return authenticationService.loginUser(loginRequest, response, request);
+    }
+
+    @PostMapping(value = "/logout", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Logout user", description = "Logout the user by revoking the refresh token and clearing cookies.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "User logged out successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = GeneralAPIResponse.class)))
+    })
+    public ResponseEntity<?> logout(HttpServletRequest request, HttpServletResponse response) {
+        log.info("Logout request received");
+        return authenticationService.logout(request, response);
+    }
+
+    @PostMapping(value = "/refresh", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Refresh Access Token", description = "Generate a new access token using the refresh token from cookies.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK: Access token generated successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = RefreshTokenResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthorized: Invalid or expired refresh token",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = GeneralAPIResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Not Found: User not found",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = GeneralAPIResponse.class)))
+    })
+    public ResponseEntity<?> refreshToken(HttpServletRequest request, HttpServletResponse response) {
+        log.info("Refresh token request received");
+        return jwtService.refreshAccessToken(request, response);
     }
 
     @PostMapping(value = "/forgot-password", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -161,24 +197,6 @@ public class AuthenticationController {
     public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest resetPasswordRequest) {
         log.info("Password reset request received for email {}", resetPasswordRequest.getEmail());
         return authenticationService.resetPassword(resetPasswordRequest);
-    }
-
-    @PostMapping(value = "/getRefreshToken", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(summary = "Refresh Token", description = "Generate a new access token from a refresh token.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK: Access token generated successfully",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = RefreshTokenResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request: Invalid refresh token or refresh token expired",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = GeneralAPIResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Not Found: User not found",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = GeneralAPIResponse.class)))
-    })
-    public ResponseEntity<?> refreshToken(@Valid @RequestBody RefreshTokenRequest refreshTokenRequest) {
-        log.info("Refresh token request received");
-        return jwtService.generateAccessTokenFromRefreshToken(refreshTokenRequest.getRefreshToken());
     }
 
     @PostMapping("/hello")

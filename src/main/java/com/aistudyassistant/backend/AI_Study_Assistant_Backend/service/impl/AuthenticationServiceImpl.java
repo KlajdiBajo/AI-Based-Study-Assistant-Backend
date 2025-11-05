@@ -10,11 +10,12 @@ import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.User;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.Username;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.entities.enums.Role;
 import com.aistudyassistant.backend.AI_Study_Assistant_Backend.repository.UserRepository;
-import com.aistudyassistant.backend.AI_Study_Assistant_Backend.service.AuthenticationService;
-import com.aistudyassistant.backend.AI_Study_Assistant_Backend.service.EmailService;
-import com.aistudyassistant.backend.AI_Study_Assistant_Backend.service.JwtService;
-import com.aistudyassistant.backend.AI_Study_Assistant_Backend.service.OtpService;
+import com.aistudyassistant.backend.AI_Study_Assistant_Backend.security.JwtHelper;
+import com.aistudyassistant.backend.AI_Study_Assistant_Backend.service.*;
+import com.aistudyassistant.backend.AI_Study_Assistant_Backend.utils.CookieUtil;
 import jakarta.mail.MessagingException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.CacheManager;
@@ -26,6 +27,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.UnsupportedEncodingException;
@@ -44,6 +46,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     private final JwtService jwtService;
     private final CacheManager cacheManager;
     private final AuthenticationManager authenticationManager;
+    private final RefreshTokenService refreshTokenService;
+    private final CookieUtil cookieUtil;
+    private final JwtHelper jwtHelper;
 
     @Override
     public ResponseEntity<RegisterResponse> registerUser(RegisterRequest registerRequest) {
@@ -125,7 +130,8 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     }
 
     @Override
-    public ResponseEntity<?> verifyUserRegistration(RegisterVerifyRequest registerVerifyRequest) {
+    @Transactional
+    public ResponseEntity<?> verifyUserRegistration(RegisterVerifyRequest registerVerifyRequest, HttpServletResponse response, HttpServletRequest request) {
         String emailEntered = registerVerifyRequest.getEmail().trim().toLowerCase();
         String otpEntered = registerVerifyRequest.getOtp().trim();
 
@@ -141,13 +147,18 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         } else {
             user.setIsVerified(true);
             userRepository.save(user);
-            RegisterVerifyResponse jwtToken = jwtService.generateJwtToken(user);
-            return new ResponseEntity<>(jwtToken, HttpStatus.CREATED);
+
+            // Generate JWT tokens and set in cookies
+            RegisterVerifyResponse responseData = jwtService.generateJwtTokenAndSetCookies(user, response, request);
+
+            log.info("User verified and logged in: {}", user.getEmail());
+            return new ResponseEntity<>(responseData, HttpStatus.CREATED);
         }
     }
 
     @Override
-    public ResponseEntity<?> loginUser(LoginRequest loginRequest) {
+    @Transactional
+    public ResponseEntity<?> loginUser(LoginRequest loginRequest, HttpServletResponse response, HttpServletRequest request) {
         String email = loginRequest.getEmail().trim().toLowerCase();
         String password = loginRequest.getPassword();
         try {
@@ -159,17 +170,49 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User is not verified");
             }
 
-            RegisterVerifyResponse jwtToken = jwtService.generateJwtToken(user);
-            return new ResponseEntity<>(jwtToken, HttpStatus.OK);
+            // Generate JWT tokens and set in cookies
+            RegisterVerifyResponse responseData = jwtService.generateJwtTokenAndSetCookies(user, response, request);
+
+            log.info("User logged in successfully: {}", user.getEmail());
+            return new ResponseEntity<>(responseData, HttpStatus.OK);
 
         } catch (ResponseStatusException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User with this email does not exist");
-        }
-        catch (BadCredentialsException e) {
+        } catch (BadCredentialsException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid credentials");
+        } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid credentials");
         }
-        catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid credentials");
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> logout(HttpServletRequest request, HttpServletResponse response) {
+        try {
+            String refreshToken = jwtHelper.getRefreshTokenFromCookies(request);
+
+            if (refreshToken != null) {
+                refreshTokenService.revokeToken(refreshToken);
+                log.info("Refresh token revoked during logout");
+            }
+
+            cookieUtil.clearAuthCookies(response);
+            log.info("User logged out successfully");
+            return new ResponseEntity<>(GeneralAPIResponse.builder()
+                    .message("Logged out successfully")
+                    .build(),
+                    HttpStatus.OK
+            );
+        } catch (Exception e) {
+            log.error("Error during logout: {}", e.getMessage());
+
+            cookieUtil.clearAuthCookies(response);
+            return new ResponseEntity<>(
+                    GeneralAPIResponse.builder()
+                            .message("Logged out successfully")
+                            .build(),
+                    HttpStatus.OK
+            );
         }
     }
 
@@ -184,7 +227,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Kindly retry after 1 minute");
             }
             String otpToBeSend = otpService.getOtpForEmail(email);
-            CompletableFuture<Integer> emailResponse= emailService.sendEmailWithRetry(email,otpToBeSend);
+            CompletableFuture<Integer> emailResponse = emailService.sendEmailWithRetry(email, otpToBeSend);
             if (emailResponse.get() == -1) {
                 throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to send OTP email. Please try again later.");
             }
