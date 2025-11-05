@@ -11,7 +11,7 @@ public class CookieUtil {
     public Cookie createAccessTokenCookie(String token) {
         Cookie cookie = new Cookie("accessToken", token);
         cookie.setHttpOnly(true);
-        cookie.setSecure(false);
+        cookie.setSecure(false); //set true for real-world production, set false for localhost
         cookie.setPath("/");
         cookie.setMaxAge((int) ApplicationConstants.ACCESS_TOKEN_VALIDITY_SECONDS);
         return cookie;
@@ -20,7 +20,7 @@ public class CookieUtil {
     public Cookie createRefreshTokenCookie(String token) {
         Cookie cookie = new Cookie("refreshToken", token);
         cookie.setHttpOnly(true);
-        cookie.setSecure(false);
+        cookie.setSecure(false); //set true for real-world production, set false for localhost
         cookie.setPath("/");
         cookie.setMaxAge((int) ApplicationConstants.REFRESH_TOKEN_VALIDITY_SECONDS);
         return cookie;
@@ -29,7 +29,7 @@ public class CookieUtil {
     public Cookie deleteAccessTokenCookie() {
         Cookie cookie = new Cookie("accessToken", null);
         cookie.setHttpOnly(true);
-        cookie.setSecure(false);
+        cookie.setSecure(false); //set true for real-world production, set false for localhost
         cookie.setPath("/");
         cookie.setMaxAge(0);
         return cookie;
@@ -38,7 +38,7 @@ public class CookieUtil {
     public Cookie deleteRefreshTokenCookie() {
         Cookie cookie = new Cookie("refreshToken", null);
         cookie.setHttpOnly(true);
-        cookie.setSecure(false);
+        cookie.setSecure(false); //set true for real-world production, set false for localhost
         cookie.setPath("/");
         cookie.setMaxAge(0);
         return cookie;
