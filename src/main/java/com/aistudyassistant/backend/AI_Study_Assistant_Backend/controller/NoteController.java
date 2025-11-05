@@ -235,18 +235,18 @@ public class NoteController {
             @Parameter(description = "The ID of the note to process with AI", required = true)
             @PathVariable Long noteId,
             @Parameter(description = "JWT token for authentication", required = true)
-            @RequestHeader("Authorization") String authHeader,
+            @CookieValue(value = "accessToken", required = false) String accessToken,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         if (userDetails == null || userDetails.getUsername() == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User authentication required");
         }
 
-        if (authHeader == null || authHeader.trim().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Authorization header is required");
+        if (accessToken == null || accessToken.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Access token cookie is missing or invalid");
         }
 
-        noteService.processNoteWithAiModel(noteId, authHeader);
+        noteService.processNoteWithAiModel(noteId, accessToken);
 
         Map<String, Object> response = new HashMap<>();
         response.put("message", "AI content processed and saved successfully");
