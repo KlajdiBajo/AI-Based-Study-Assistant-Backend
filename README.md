@@ -1,22 +1,22 @@
 # AI Study Assistant - Spring Boot Backend
 
 ## Table of Contents
-1. [Project Overview](#project-overview)
-2. [Features](#features)
-3. [System Architecture (Diagram)](#system-architecture-diagram)
-4. [Authentication Flow](#authentication-flow)
-5. [Backend Workflow](#backend-workflow)
-6. [Tech Stack](#tech-stack)
-7. [Project Structure](#project-structure)
-8. [Setup Instructions](#setup-instructions)
+- [Project Overview](#project-overview)
+- [Features](#features)
+- [System Architecture (Diagram)](#system-architecture-diagram)
+- [Authentication Flow](#authentication-flow)
+- [Backend Workflow](#backend-workflow)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Setup Instructions](#setup-instructions)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
   - [Configuration](#configuration)
   - [Run the Application](#run-the-application)
   - [Notes](#notes)
-9. [API Documentation](#api-documentation)
-10. [Related Repositories](#related-repositories)
-11. [Author](#author)
+- [API Documentation](#api-documentation)
+- [Related Repositories](#related-repositories)
+- [Author](#author)
 
 ---
 
