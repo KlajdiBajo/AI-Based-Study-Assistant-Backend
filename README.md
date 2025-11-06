@@ -1,5 +1,17 @@
 # AI Study Assistant - Spring Boot Backend
 
+## Project Overview
+The AI Study Assistant web application is designed to help students
+throughout their learning journey. It provides a faster and more efficient way to
+study large amounts of text. Users can upload study materials in multiple
+formats, including PDF, DOCX and TXT. The system processes these notes through a custom
+multi-task AI model built on the T5 transformer, trained to generate concise summaries and
+high-quality multiple-choice questions (MCQ) from educational materials. Users can then view the generated summaries,
+take quizzes for each uploaded document and review their answers and scores. Based on their results, the system highlights the areas where users
+need to focus the most and identifies topics where they may need additional practice.
+
+---
+
 ## Table of Contents
 - [Project Overview](#project-overview)
 - [Features](#features)
@@ -17,18 +29,6 @@
 - [API Documentation](#api-documentation)
 - [Related Repositories](#related-repositories)
 - [Author](#author)
-
----
-
-## Project Overview
-The AI Study Assistant web application is designed to help students
-throughout their learning journey. It provides a faster and more efficient way to
-study large amounts of text. Users can upload study materials in multiple
-formats, including PDF, DOCX and TXT. The system processes these notes through a custom
-multi-task AI model built on the T5 transformer, trained to generate concise summaries and
-high-quality multiple-choice questions (MCQ) from educational materials. Users can then view the generated summaries,
-take quizzes for each uploaded document and review their answers and scores. Based on their results, the system highlights the areas where users
-need to focus the most and identifies topics where they may need additional practice.
 
 ---
 
