@@ -226,9 +226,9 @@ http://localhost:8080/swagger-ui.html
 ---
 
 ### Related Repositories
-- **Flask API (AI Service):** [AI-Study-Assistant-FlaskAPI](https://github.com/yourusername/AI-Study-Assistant-Flask)  
+- **Flask API (AI Service):** [AI-Study-Assistant-FlaskAPI](https://github.com/KlajdiBajo/AI-Based-Study-Assistant-FlaskAPI)
 
-- **React Frontend (User Interface):** [AI-Study-Assistant-Frontend](https://github.com/yourusername/AI-Study-Assistant-Frontend)
+- **React Frontend:** [AI-Study-Assistant-Frontend](https://github.com/KlajdiBajo/AI-Based-Study-Assistant-Frontend)
 
 ---
 
