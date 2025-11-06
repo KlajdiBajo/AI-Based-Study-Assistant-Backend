@@ -1,5 +1,25 @@
 # AI Study Assistant - Spring Boot Backend
 
+## Table of Contents
+1. [Project Overview](#project-overview)
+2. [Features](#features)
+3. [System Architecture (Diagram)](#system-architecture-diagram)
+4. [Authentication Flow](#authentication-flow)
+5. [Backend Workflow](#backend-workflow)
+6. [Tech Stack](#tech-stack)
+7. [Project Structure](#project-structure)
+8. [Setup Instructions](#setup-instructions)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Configuration](#configuration)
+  - [Run the Application](#run-the-application)
+  - [Notes](#notes)
+9. [API Documentation](#api-documentation)
+10. [Related Repositories](#related-repositories)
+11. [Author](#author)
+
+---
+
 ## Project Overview
 The AI Study Assistant web application is designed to help students
 throughout their learning journey. It provides a faster and more efficient way to
@@ -109,15 +129,15 @@ src/
 
 ---
 
-### Setup Instructions
+## Setup Instructions
 
-## Prerequisites
+### Prerequisites
 - **Java 17+** installed
 - **Maven** installed
 - **Docker Desktop** running (for PostgreSQL)
 - An IDE like IntelliJ IDEA
 
-## Installation
+### Installation
 1. Clone the repository
 ```bash
 git clone https://github.com/KlajdiBajo/AI-Study-Assistant-Backend.git
@@ -128,7 +148,7 @@ cd AI-Study-Assistant-Backend
 docker-compose up -d
 ```
 
-## Configuration
+### Configuration
 **1. Environmental Variables**  
 You must configure the following environment variables in your IDE before running the application.
 In IntelliJ IDEA, this can be done by navigating to Run → Edit Configurations → Environment Variables.
@@ -178,7 +198,7 @@ spring.mail.properties.mail.smtp.auth=true
 spring.mail.properties.mail.smtp.starttls.enable=true
 ```
 
-## Run the Application
+### Run the Application
 1. **Build the project**
 ```bash
 ./mvnw clean install
@@ -189,7 +209,7 @@ spring.mail.properties.mail.smtp.starttls.enable=true
 ```
 The backend should now be running at: **`http://localhost:8080`**
 
-## Notes
+### Notes
 * The `.env` file is **not included in the repository** for security reasons.  
 * Each user must define their own environment variables as shown above.  
 * Docker automatically reads variables from `.env` when running `docker-compose up -d`.  
