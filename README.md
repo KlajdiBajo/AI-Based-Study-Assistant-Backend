@@ -1,5 +1,9 @@
 # AI Study Assistant - Spring Boot Backend
 
+A robust Spring Boot backend that powers the AI Study Assistant platform. Built with Java, Spring Security, and PostgreSQL, it provides secure authentication,  data management, and smooth integration with the Flask AI service.
+
+---
+
 ## Table of Contents
 - [Project Overview](#project-overview)
 - [Features](#features)
